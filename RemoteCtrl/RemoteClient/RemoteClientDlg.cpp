@@ -18,7 +18,7 @@
 class CAboutDlg : public CDialogEx
 {
 public:
-	CAboutDlg();
+	CAboutDlg();   
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
