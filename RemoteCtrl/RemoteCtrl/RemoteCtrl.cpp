@@ -4,6 +4,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "RemoteCtrl.h"
+#include "ServerSocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -33,7 +34,37 @@ int main()
         }
         else
         {
-            // TODO: 在此处为应用程序的行为编写代码。
+            //先难后易有以下好处：1、进度可控；2、方便对接；3、可行性评估，提早暴露风险
+            // TODO: socket, listen, accept, read, write, close
+            //套接字初始化
+            //server;
+            //CServerSocket local;
+            
+            CServerSocket* pserver = CServerSocket::getInstance();
+            int count = 0;
+            if (pserver->InitSock() == false)
+            {
+                MessageBox(NULL, _T("网络初始化失败，未能成功初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                exit(0);
+            }
+            if (pserver)
+            {
+                if (pserver->AcceptClient() == false)
+                {
+                    if(count >=3)
+                    {
+                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                }
+                int ret = pserver->DealCommand();
+                //TODO
+            }
+            
+            //TODO
+            //全局的静态变量
+
         }
     }
     else
