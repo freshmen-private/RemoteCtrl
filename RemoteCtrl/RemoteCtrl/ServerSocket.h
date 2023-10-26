@@ -14,8 +14,15 @@ public:
 		sHead = 0XFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
-		strData.resize(nSize);
-		memcpy((void*)strData.c_str(), pData, nSize);
+		if (nSize > 0)
+		{
+			strData.resize(nSize);
+			memcpy((void*)strData.c_str(), pData, nSize);
+		}
+		else
+		{
+			strData.clear();
+		}
 		sSum = 0;
 		for (size_t j = 0; j < strData.size(); j++)
 		{
@@ -31,9 +38,9 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
-	CPacket(const BYTE* pData, size_t& nSize)
+	CPacket(const BYTE* pData, int& nSize)
 	{
-		size_t i = 0;
+		int i = 0;
 		for (; i < nSize; i++)
 		{
 			if (*(WORD*)(pData + i) == 0XFEFF)
@@ -98,7 +105,7 @@ public:
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		*(WORD*)pData = sHead; pData += 2;
-		*(WORD*)pData = nLength; pData += 4;
+		*(DWORD*)pData = nLength; pData += 4;
 		*(WORD*)pData = sCmd; pData += 2;
 		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 		*(WORD*)pData = sSum;
@@ -115,6 +122,20 @@ public:
 };
 #pragma pack(pop)
 //单例对象
+
+typedef struct MouseEvent
+{
+	MouseEvent()
+	{
+		nAction = 0;
+		nButton = -1;
+		ptXY.x = 0;
+		ptXY.y = 0;
+	}
+	WORD nAction;//动作
+	WORD nButton;//按键
+	POINT ptXY;//坐标
+}MOUSEEV, *PMOUSEEV;
 
 class CServerSocket
 {
@@ -172,10 +193,10 @@ public:
 		//char buffer[1024];
 		char* buffer = new char[BUFFER_SIZE];
 		memset(buffer, 0, BUFFER_SIZE);
-		size_t index = 0;
+		int index = 0;
 		while (true)
 		{
-			size_t len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
+			int len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
 			if (len <= 0)
 			{
 				return -1;
@@ -197,11 +218,31 @@ public:
 	{
 		if (m_client == -1) return false;
 		send(m_client, pData, nSize, 0);
+		return TRUE;
 	}
 	bool Send(CPacket& pack)
 	{
 		if (m_client == -1) return false;
 		send(m_client, pack.Data(), pack.Size(), 0);//6:2个字节的包头，4个字节的长度
+		return TRUE;
+	}
+	bool GetFilePath(std::string& strPath)
+	{
+		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4))
+		{
+			strPath = m_packet.strData;
+			return true;
+		}
+		return false;
+	}
+	bool GetMouseEvent(MOUSEEV& mouse)
+	{
+		if (m_packet.sCmd == 5)
+		{
+			memcpy(&mouse, m_packet.strData.c_str(), sizeof(MOUSEEV));
+			return true;
+		}
+		return false;
 	}
 private:
 	SOCKET m_sock;
