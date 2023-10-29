@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <string>
+#include <vector>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -12,8 +13,8 @@ public:
 	//打包的重构
 	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)
 	{
-		sHead = 0XFEFF;
-		nLength = nSize + 4;
+		sHead = 0xFEFF;
+		nLength = nSize + 2 * sizeof(WORD);
 		sCmd = nCmd;
 		if (nSize > 0)
 		{
@@ -27,7 +28,7 @@ public:
 		sSum = 0;
 		for (size_t j = 0; j < strData.size(); j++)
 		{
-			sSum += BYTE(strData[j] & 0xFF);
+			sSum += BYTE(strData[j]) & 0xFF;
 		}
 	}
 	//解包的重构
@@ -39,43 +40,38 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
-	CPacket(const BYTE* pData, int& nSize)
+	CPacket(const BYTE* pData, int& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0)
 	{
 		int i = 0;
 		for (; i < nSize; i++)
 		{
-			if (*(WORD*)(pData + i) == 0XFEFF)
+			if (*(WORD*)(pData + i) == 0xFEFF)
 			{
 				sHead = *(WORD*)(pData + i);
-				i += 2;
+				i += sizeof(WORD);
 				break;
 			}
 		}
-		if (i + 4 + 2 + 2 >= nSize)
-		{
-			nSize = 0;
-			return;
-		}
-		nLength = *(WORD*)(pData + i);
-		i += 4;
+		nLength = *(DWORD*)(pData + i);
+		i += sizeof(DWORD);
 		if (nLength + i > nSize)
 		{
 			nSize = 0;
 			return;
 		}
 		sCmd = *(WORD*)(pData + i);
-		i += 2;
-		if (nLength > 4)
+		i += sizeof(WORD);
+		if (nLength > sizeof(WORD) + sizeof(WORD))
 		{
-			strData.resize(nLength - 2 - 2);
-			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
+			strData.resize(nLength - 2 * sizeof(WORD));
+			memcpy((void*)strData.c_str(), pData + i, nLength - 2 * sizeof(WORD));
 		}
 		sSum = *(WORD*)(pData + i);
-		i += 2;
+		i += sizeof(WORD);
 		WORD sum = 0;
 		for (int j = 0; j < strData.size(); j++)
 		{
-			sum += BYTE(strData[j]) & 0XFF;
+			sum += BYTE(strData[j]) & 0xFF;
 		}
 		if (sum == sSum)
 		{
@@ -99,15 +95,15 @@ public:
 	}
 	int Size()
 	{
-		return nLength + 6;
+		return nLength + sizeof(DWORD) + sizeof(WORD);
 	}
 	const char* Data()
 	{
-		strOut.resize(nLength + 6);
+		strOut.resize(nLength + sizeof(DWORD) + sizeof(WORD));
 		BYTE* pData = (BYTE*)strOut.c_str();
-		*(WORD*)pData = sHead; pData += 2;
-		*(DWORD*)pData = nLength; pData += 4;
-		*(WORD*)pData = sCmd; pData += 2;
+		*(WORD*)pData = sHead; pData += sizeof(WORD);
+		*(DWORD*)pData = nLength; pData += sizeof(DWORD);
+		*(WORD*)pData = sCmd; pData += sizeof(WORD);
 		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 		*(WORD*)pData = sSum;
 
@@ -138,21 +134,7 @@ typedef struct MouseEvent
 	POINT ptXY;//坐标
 }MOUSEEV, * PMOUSEEV;
 
-std::string GetErrorInfo(int wsaErrCode)
-{
-	std::string ret;
-	LPVOID lpMsgBuf = NULL;
-	FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-		NULL,
-		wsaErrCode,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf, 0, NULL
-	);
-	ret = (char*)lpMsgBuf;
-	LocalFree(lpMsgBuf);
-	return ret;
-}
+std::string GetErrInfo(int wsaErrCode);
 
 class CClientSocket
 {
@@ -165,9 +147,14 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSock(const std::string& strIPAddress)
+	bool InitSocket(const std::string& strIPAddress)
 	{
 		//TODO 校验socket是否创建成功
+		if (m_sock != INVALID_SOCKET)
+		{
+			CloseSocket();
+		}
+		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1)
 		{
 			return false;
@@ -177,24 +164,26 @@ public:
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = inet_addr(strIPAddress.c_str());
 		serv_addr.sin_port = htons(9527);
-		if (serv_addr.sin_addr.s_addr == NULL)
+		if (serv_addr.sin_addr.s_addr == INADDR_NONE)
 		{
 			AfxMessageBox("指定的IP地址不存在\n");
 			return false;
 		}
 		//连接
-		if (connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+		int ret = connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr));
+		if ( ret == -1 )
 		{
 			AfxMessageBox("连接失败\n");
-			TRACE("连接失败， %d %s", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+			TRACE("连接失败， %d %s", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
 			return false;
 		}
-		//TODO 校验绑定是否成功
-		if (listen(m_sock, 1) == -1)
-		{
-			return false;
-		}
+
 		return true;
+	}
+	void CloseSocket()
+	{
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 	}
 
 #define BUFFER_SIZE 4096
@@ -202,7 +191,7 @@ public:
 	{
 		if (m_sock == -1) return false;
 		//char buffer[1024];
-		char* buffer = new char[BUFFER_SIZE];
+		char* buffer = m_buffer.data();
 		memset(buffer, 0, BUFFER_SIZE);
 		int index = 0;
 		while (true)
@@ -255,10 +244,14 @@ public:
 		}
 		return false;
 	}
+	CPacket& GetPacket()
+	{
+		return m_packet;
+	}
 private:
 	SOCKET m_sock;
 	CPacket m_packet;
-
+	std::vector<char> m_buffer;
 	CClientSocket& operator=(const CClientSocket& ss) {}
 	CClientSocket(const CClientSocket& ss)
 	{
@@ -271,7 +264,7 @@ private:
 			MessageBox(NULL, _T("无法初始化套接字环境，请检查网络设置"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
 	~CClientSocket()
 	{

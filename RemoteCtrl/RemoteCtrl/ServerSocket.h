@@ -11,7 +11,7 @@ public:
 	//打包的重构
 	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)
 	{
-		sHead = 0XFEFF;
+		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
 		if (nSize > 0)
@@ -38,43 +38,38 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
-	CPacket(const BYTE* pData, int& nSize)
+	CPacket(const BYTE* pData, int& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0)
 	{
 		int i = 0;
 		for (; i < nSize; i++)
 		{
-			if (*(WORD*)(pData + i) == 0XFEFF)
+			if (*(WORD*)(pData + i) == 0xFEFF)
 			{
 				sHead = *(WORD*)(pData + i);
-				i += 2;
+				i += sizeof(WORD);
 				break;
 			}
 		}
-		if (i + 4 + 2 + 2 >= nSize)
-		{
-			nSize = 0;
-			return;
-		}
-		nLength = *(WORD*)(pData + i); 
-		i += 4;
+		nLength = *(DWORD*)(pData + i);
+		i += sizeof(DWORD);
 		if (nLength + i > nSize)
 		{
 			nSize = 0;
 			return;
 		}
 		sCmd = *(WORD*)(pData + i);
-		i += 2;
-		if(nLength > 4)
+		i += sizeof(WORD);
+		if (nLength > sizeof(WORD) + sizeof(WORD))
 		{
-			strData.resize(nLength - 2 - 2);
-			memcpy((void*)strData.c_str(), pData + i, nLength - 4);
+			strData.resize(nLength - 2 * sizeof(WORD));
+			memcpy((void*)strData.c_str(), pData + i, nLength - 2 * sizeof(WORD));
 		}
 		sSum = *(WORD*)(pData + i);
-		i += 2;
+		i += sizeof(WORD);
 		WORD sum = 0;
 		for (int j = 0; j < strData.size(); j++)
 		{
-			sum += BYTE(strData[j]) & 0XFF;
+			sum += BYTE(strData[j]) & 0xFF;
 		}
 		if (sum == sSum)
 		{
@@ -98,15 +93,15 @@ public:
 	}
 	int Size()
 	{
-		return nLength + 6;
+		return nLength + sizeof(DWORD) + sizeof(WORD);
 	}
 	const char* Data()
 	{
-		strOut.resize(nLength + 6);
+		strOut.resize(nLength + sizeof(DWORD) + sizeof(WORD));
 		BYTE* pData = (BYTE*)strOut.c_str();
-		*(WORD*)pData = sHead; pData += 2;
-		*(DWORD*)pData = nLength; pData += 4;
-		*(WORD*)pData = sCmd; pData += 2;
+		*(WORD*)pData = sHead; pData += sizeof(WORD);
+		*(DWORD*)pData = nLength; pData += sizeof(DWORD);
+		*(WORD*)pData = sCmd; pData += sizeof(WORD);
 		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 		*(WORD*)pData = sSum;
 
@@ -148,10 +143,10 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSock()
+	bool InitSocket()
 	{
 		//TODO 校验socket是否创建成功
-		if (m_sock == -1)
+		if (m_sock == INVALID_SOCKET)
 		{
 			return false;
 		}
@@ -177,6 +172,7 @@ public:
 		sockaddr_in client_addr;
 		int cli_sz = sizeof(client_addr);
 		m_client = accept(m_sock, (sockaddr*)&client_addr, &cli_sz);
+		TRACE("server accept client:%d\n", m_client);
 		if (m_client == -1)
 		{
 			return false;
@@ -192,25 +188,35 @@ public:
 		if (m_client == -1) return false;
 		//char buffer[1024];
 		char* buffer = new char[BUFFER_SIZE];
+		if (buffer == NULL)
+		{
+			TRACE("内存不足\n");
+			return -1;
+		}
 		memset(buffer, 0, BUFFER_SIZE);
 		int index = 0;
 		while (true)
 		{
 			int len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
+			TRACE("client_socket:%s %d", buffer, len);
 			if (len <= 0)
 			{
+				delete[] buffer;
 				return -1;
 			}
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
+			TRACE("m_packet.sCmd:%d", m_packet.sCmd);
 			if (len > 0)
 			{
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
+				delete[] buffer;
 				return m_packet.sCmd;
 			}
 		}
+		delete[] buffer;
 		return -1;
 	}
 
@@ -243,6 +249,15 @@ public:
 			return true;
 		}
 		return false;
+	}
+	CPacket& GetPacket()
+	{
+		return m_packet;
+	}
+	void CloseClient()
+	{
+		closesocket(m_client);
+		m_client = INVALID_SOCKET;
 	}
 private:
 	SOCKET m_sock;

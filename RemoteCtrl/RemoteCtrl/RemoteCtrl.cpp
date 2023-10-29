@@ -350,6 +350,49 @@ int UnLockMachine()
     return 0;
 }
 
+int TestConnect()
+{
+    CPacket pack(1981, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+int ExcuteCommand(int nCmd)
+{
+    TRACE("sCmd:%d\n", nCmd);
+    int ret = 0;
+    switch (nCmd)
+    {
+    case 1:
+        ret = MakeDriverInfo();
+        break;
+    case 2://查看指定目录下的文件
+        ret = MakeDirecteryInfo();
+        break;
+    case 3:
+        ret = RunFile();
+        break;
+    case 4:
+        ret = DownloadFile();
+        break;
+    case 5:
+        ret = MouseEvent();
+        break;
+    case 6:
+        ret = SendScreen();
+        break;
+    case 7:
+        ret = LockMachine();
+        break;
+    case 8:
+        ret = UnLockMachine();
+        break;
+    case 1981:
+        ret = TestConnect();
+    }
+    return ret;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -370,67 +413,42 @@ int main()
             //先难后易有以下好处：1、进度可控；2、方便对接；3、可行性评估，提早暴露风险
             // TODO: socket, listen, accept, read, write, close
             //套接字初始化
-            //server;
-            //CServerSocket local;
             //CServerSocket* pserver = CServerSocket::getInstance();
-            //int count = 0;
-            //if (pserver->InitSock() == false)
-            //{
-            //    MessageBox(NULL, _T("网络初始化失败，未能成功初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-            //    exit(0);
-            //}
-            //if (pserver)
-            //{
-            //    if (pserver->AcceptClient() == false)
-            //    {
-            //        if(count >=3)
-            //        {
-            //            MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //            exit(0);
-            //        }
-            //        MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //    }
-            //    int ret = pserver->DealCommand();
-            //    //TODO
-            //}
+            CServerSocket* pserver = CServerSocket::getInstance();
+            int count = 0;
+            if (pserver->InitSocket() == false)
+            {
+                MessageBox(NULL, _T("网络初始化失败，未能成功初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                exit(0);
+            }
+            while (CServerSocket::getInstance() != NULL)
+            {
+                if (pserver->AcceptClient() == false)
+                {
+                    if(count >=3)
+                    {
+                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                    count++;
+                }
+                int ret = pserver->DealCommand();
+                TRACE("sCmd:%d\n", ret);
+                if(ret >= 0)
+                {
+                    ret = ExcuteCommand(pserver->GetPacket().sCmd);
+                    if (ret != 0)
+                    {
+                        TRACE("执行命令失败:%d ret = %d\n", pserver->GetPacket().sCmd, ret);
+                    }
+                    pserver->CloseClient();
+                }
+            }
             //TODO
             
             //全局的静态变量
-            int nCmd = 7;
-            switch (nCmd)
-            {
-            case 1:
-                MakeDriverInfo();
-                break;
-            case 2://查看指定目录下的文件
-                MakeDirecteryInfo();
-                break;
-            case 3:
-                RunFile();
-                break;
-            case 4:
-                DownloadFile();
-                break;
-            case 5:
-                MouseEvent();
-                break;
-            case 6:
-                SendScreen();
-                break;
-            case 7:
-                LockMachine();
-                break;
-            case 8:
-                UnLockMachine();
-                break;
-            }
-            Sleep(5000);
-            UnLockMachine();
-            TRACE("m_hWnd = %08X\r\n", dlg.m_hWnd);
-            while (dlg.m_hWnd != NULL)
-            {
-                Sleep(50);
-            }
+            
         }
     }
     else
