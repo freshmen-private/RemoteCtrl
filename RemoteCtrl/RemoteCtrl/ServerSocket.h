@@ -64,6 +64,7 @@ public:
 			strData.resize(nLength - 2 * sizeof(WORD));
 			memcpy((void*)strData.c_str(), pData + i, nLength - 2 * sizeof(WORD));
 		}
+		i += nLength - 2 * sizeof(WORD);
 		sSum = *(WORD*)(pData + i);
 		i += sizeof(WORD);
 		WORD sum = 0;
@@ -131,6 +132,19 @@ typedef struct MouseEvent
 	WORD nButton;//按键
 	POINT ptXY;//坐标
 }MOUSEEV, *PMOUSEEV;
+
+typedef struct file_info {
+	file_info() {
+		IsInvalid = FALSE;
+		IsDirectory = FALSE;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvalid;//是否有效
+	BOOL IsDirectory;//是否是目录
+	BOOL HasNext;
+	char szFileName[256];//文件名
+}FILEINFO, * PFILEINFO;
 
 class CServerSocket
 {

