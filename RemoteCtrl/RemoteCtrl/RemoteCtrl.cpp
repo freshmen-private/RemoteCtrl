@@ -75,11 +75,7 @@ int MakeDirecteryInfo()
     if (_chdir(strPath.c_str()) != 0)
     {
         FILEINFO finfo;
-        /*finfo.IsInvalid = TRUE;
-        finfo.IsDirectory = TRUE;*/
         finfo.HasNext = FALSE;
-        //memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
-        //lstFileInfos.push_back(finfo);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugString(_T("没有访问权限\n"));
