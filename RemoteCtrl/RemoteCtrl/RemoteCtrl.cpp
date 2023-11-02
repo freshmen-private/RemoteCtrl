@@ -82,7 +82,7 @@ int MakeDirecteryInfo()
         return -2;
     }
     _finddata_t fdata;
-    __int64 hfind = 0;
+    intptr_t hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1)
     {
         OutputDebugString(_T("没有找到任何文件\n"));
@@ -359,9 +359,24 @@ int TestConnect()
     return 0;
 }
 
+int DeleteLocalFile()
+{
+    TRACE("DeleteFile begin\n");
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    TCHAR sPath[MAX_PATH];
+    //mbstowcs(sPath, strPath.c_str(), strPath.size());//中文容易乱码
+    MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath,
+        sizeof(sPath) / sizeof(WCHAR));
+    DeleteFileA(strPath.c_str());
+    CPacket pack(9, NULL, 0);
+    bool ret = CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 int ExcuteCommand(int nCmd)
 {
-    TRACE("sCmd:%d\n", nCmd);
+    TRACE("ExcuteCommand begin, sCmd:%d\n", nCmd);
     int ret = 0;
     switch (nCmd)
     {
@@ -388,6 +403,9 @@ int ExcuteCommand(int nCmd)
         break;
     case 8:
         ret = UnLockMachine();
+        break;
+    case 9:
+        ret = DeleteLocalFile();
         break;
     case 1981:
         ret = TestConnect();
