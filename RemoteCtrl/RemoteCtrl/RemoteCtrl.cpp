@@ -65,6 +65,7 @@ int MakeDriverInfo()
 
 int MakeDirecteryInfo()
 {
+    int count = 0;
     std::string strPath;
     //std::list<FILEINFO> lstFileInfos;
     if (CServerSocket::getInstance()->GetFilePath(strPath) == false)
@@ -100,13 +101,18 @@ int MakeDirecteryInfo()
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
         TRACE("%s\n", finfo.szFileName);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
-        CServerSocket::getInstance()->Send(pack);
+        bool ret = CServerSocket::getInstance()->Send(pack);
+        if (ret)
+        {
+            count++;
+        }
     } while (!_findnext(hfind, &fdata));
     //发送信息到控制端
     FILEINFO finfo;
     finfo.HasNext = FALSE;
     CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
     CServerSocket::getInstance()->Send(pack);
+    TRACE("send fileinfo count = %d\n", count + 1);
     return 0;
 }
 

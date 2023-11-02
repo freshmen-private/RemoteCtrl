@@ -81,7 +81,7 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
 	CPacket pack(nCmd, pData, nLength);
 	ret = pClient->Send(pack);
 	int cmd = pClient->DealCommand();
-	TRACE("ack:%d\n", pClient->GetPacket().sCmd);
+	//TRACE("ack:%d\n", pClient->GetPacket().sCmd);
 	if(bAutoClose == TRUE)
 	{
 		pClient->CloseSocket();
@@ -278,6 +278,8 @@ void CRemoteClientDlg::LoadFileCurrent()
 
 void CRemoteClientDlg::LoadFileInfo()
 {
+	int count = 0;
+	TRACE("LoadFileInfo\n");
 	CPoint ptMouse;
 	GetCursorPos(&ptMouse);
 	m_Tree.ScreenToClient(&ptMouse);
@@ -298,12 +300,13 @@ void CRemoteClientDlg::LoadFileInfo()
 	CClientSocket* pClient = CClientSocket::getInstance();
 	while (pInfo->HasNext)
 	{
+		count++;
 		if (pInfo->IsDirectory)
 		{
 			if ((CString(pInfo->szFileName) == ".") || (CString(pInfo->szFileName) == ".."))
 			{
 				int cmd = pClient->DealCommand();
-				TRACE("ack:%d\n", cmd);
+				//TRACE("ack:%d\n", cmd);
 				if (cmd < 0) break;
 				pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 				continue;
@@ -316,12 +319,12 @@ void CRemoteClientDlg::LoadFileInfo()
 			m_List.InsertItem(0, pInfo->szFileName);
 		}
 		int cmd = pClient->DealCommand();
-		TRACE("ack:%d\n", cmd);
+		//TRACE("ack:%d\n", cmd);
 		if (cmd < 0) break;
 		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
 	//m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-
+	TRACE("recv fileinfo count = %d\n", count);
 	pClient->CloseSocket();
 }
 
@@ -424,7 +427,8 @@ void CRemoteClientDlg::OnDeleteFile()
 	HTREEITEM hSelected = m_Tree.GetSelectedItem();
 	CString strPath = GetPath(hSelected);
 	int nSelected = m_List.GetSelectionMark();
-	CString strFile = strPath + strFile;
+	CString strFile = m_List.GetItemText(nSelected, 0);
+	strFile = strPath + strFile;
 	int ret = SendCommandPacket(9, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	if (ret < 0)
 	{
@@ -439,7 +443,8 @@ void CRemoteClientDlg::OnRunFile()
 	HTREEITEM hSelected = m_Tree.GetSelectedItem();
 	CString strPath = GetPath(hSelected);
 	int nSelected = m_List.GetSelectionMark();
-	CString strFile = strPath + strFile;
+	CString strFile = m_List.GetItemText(nSelected, 0);
+	strFile = strPath + strFile;
 	int ret = SendCommandPacket(3, true, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	if (ret < 0)
 	{

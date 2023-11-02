@@ -65,7 +65,9 @@ public:
 		{
 			strData.resize(nLength - 2 * sizeof(WORD));
 			memcpy((void*)strData.c_str(), pData + i, nLength - 2 * sizeof(WORD));
+			TRACE("%s\n", strData.c_str() + 12);
 		}
+		i += nLength - 2 * sizeof(WORD);
 		sSum = *(WORD*)(pData + i);
 		i += sizeof(WORD);
 		WORD sum = 0;
@@ -204,21 +206,23 @@ public:
 	{
 		if (m_sock == -1) return false;
 		char* buffer = m_buffer.data();
-		memset(buffer, 0, BUFFER_SIZE);
-		int index = 0;
+		static int index = 0;
+		static int count = 0;
 		while (true)
 		{
 			int len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			if (len <= 0)
+			if (len <= 0 && index == 0)
 			{
 				return -1;
 			}
+			count++;
+			TRACE("%d\n", count);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0)
 			{
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);
+				memmove(buffer, buffer + len, index - len);
 				index -= len;
 			}
 			return m_packet.sCmd;
@@ -277,6 +281,7 @@ private:
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	~CClientSocket()
 	{
