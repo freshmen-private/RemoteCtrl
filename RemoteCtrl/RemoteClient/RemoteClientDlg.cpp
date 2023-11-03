@@ -273,14 +273,12 @@ void CRemoteClientDlg::threadWatchData()
 	}while (pClient == NULL);
 	for (;;)
 	{
-		CPacket pack(6, NULL, 0);
-		bool ret = pClient->Send(pack);
-		if (ret)
+		if (m_isFull == false)
 		{
-			int cmd = pClient->DealCommand();//拿数据
-			if (cmd == 6)
+			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
+			if (ret == 6)
 			{
-				if (m_isFull == false)//更新数据到缓存
+				//更新数据到缓存
 				{
 					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
 					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
@@ -303,6 +301,10 @@ void CRemoteClientDlg::threadWatchData()
 					}
 				}
 				//TODO 存入CImage
+			}
+			else
+			{
+				Sleep(1);
 			}
 		}
 		else
@@ -537,15 +539,30 @@ void CRemoteClientDlg::OnRunFile()
 
 LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 {
-	CString strFile = (LPCSTR)lParam;
-	int ret = SendCommandPacket(wParam >> 1, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	int ret = 0;
+	int cmd = wParam >> 1;
+	switch (cmd)
+	{
+	case 4:
+	{
+		CString strFile = (LPCSTR)lParam;
+		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+		break;
+	}
+	case 6:
+		ret = SendCommandPacket(cmd, wParam & 1);
+		break;
+	default:
+		ret = -1;
+	}
+	
 	return ret;
 }
 
 
 void CRemoteClientDlg::OnBnClickedBtnWatch()
 {
-	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
 	CWatchDialog dlg(this);
+	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
 }
