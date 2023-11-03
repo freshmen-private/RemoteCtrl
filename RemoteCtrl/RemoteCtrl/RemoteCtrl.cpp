@@ -171,31 +171,31 @@ int MouseEvent()
         switch (mouse.nButton)
         {
         case 0:
-            nflags = 0x10;
+            nflags = 0x10;//左键
             break;
         case 1:
-            nflags = 0x20;
+            nflags = 0x20;//右键
             break;
         case 2:
-            nflags = 0x40;
+            nflags = 0x40;//中键
             break;
         case 3:
-            nflags = 0x80;
+            nflags = 0x80;//弹起
             break;
         }
         switch (mouse.nAction)
         {
         case 0:
-            nflags |= 0x01;
+            nflags |= 0x01;//单击
             break;
         case 1:
-            nflags |= 0x02;
+            nflags |= 0x02;//双击
             break;
         case 2:
-            nflags |= 0x04;
+            nflags |= 0x04;//按下
             break;
         case 3:
-            nflags |= 0x08;
+            nflags |= 0x08;//弹起
             break;
         }
         switch (nflags)
