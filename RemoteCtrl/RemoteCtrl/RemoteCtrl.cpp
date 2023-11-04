@@ -310,9 +310,19 @@ unsigned __stdcall threadLockDlg(void* arg)
     rect.bottom = GetSystemMetrics(SM_CXFULLSCREEN);
     rect.bottom = LONG(rect.bottom * 1.03);
     dlg.MoveWindow(rect);
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText)
+    {
+        CRect rtText;
+        pText->GetWindowRect(rtText);
+        int x = (rect.right - rtText.Width() / 2) / 2;
+        int y = (rect.bottom - rtText.Height() / 2) / 2;
+        pText->MoveWindow(x, y, rtText.Width(), rtText.Height());
+    }
     dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
     ShowCursor(false);
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+    dlg.GetWindowRect(rect);
     rect.left = 0;
     rect.right = 0;
     rect.top = 1;
