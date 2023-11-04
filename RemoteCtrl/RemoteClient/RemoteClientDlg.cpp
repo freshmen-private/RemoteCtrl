@@ -271,7 +271,7 @@ void CRemoteClientDlg::threadWatchData()
 	{
 		pClient = CClientSocket::getInstance();
 	}while (pClient == NULL);
-	for (;;)
+	while(!m_isClosed)//
 	{
 		if (m_isFull == false)
 		{
@@ -279,26 +279,26 @@ void CRemoteClientDlg::threadWatchData()
 			if (ret == 6)
 			{
 				//更新数据到缓存
+				BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+				HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+				if (hMem == NULL)
 				{
-					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
-					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
-					if (hMem == NULL)
-					{
-						TRACE("内存不足\n");
-						Sleep(1);
-						continue;
-					}
-					IStream* pStream = NULL;
-					HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
-					if (hRet == S_OK)
-					{
-						ULONG length = 0;
-						pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
-						LARGE_INTEGER bg = { 0 };
-						pStream->Seek(bg, STREAM_SEEK_SET, NULL);
-						m_image.Load(pStream);
-						m_isFull = true;
-					}
+					TRACE("内存不足\n");
+					Sleep(1);
+					continue;
+				}
+				IStream* pStream = NULL;
+				HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+				if (hRet == S_OK)
+				{
+					ULONG length = 0;
+					pStream->Write(pData, pClient->GetPacket().strData.size(), &length);
+					LARGE_INTEGER bg = { 0 };
+					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+					/*if ((HBITMAP)m_image != NULL)
+						m_image.Destroy();*/
+					m_image.Load(pStream);
+					m_isFull = true;
 				}
 				//TODO 存入CImage
 			}
@@ -565,7 +565,10 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 
 void CRemoteClientDlg::OnBnClickedBtnWatch()
 {
+	m_isClosed = FALSE;
 	CWatchDialog dlg(this);
-	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
+	HANDLE hTread = (HANDLE)_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
+	m_isClosed = TRUE;
+	WaitForSingleObject(hTread, 500);
 }
