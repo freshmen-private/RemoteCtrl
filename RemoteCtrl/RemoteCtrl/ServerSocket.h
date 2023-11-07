@@ -48,7 +48,7 @@ public:
 			if (ret > 0)
 			{
 				m_callback(m_arg, ret, lstPackets, m_packet);
-				if (lstPackets.size() > 0)
+				while (lstPackets.size() > 0)
 				{
 					Send(lstPackets.front());
 					lstPackets.pop_front();
@@ -149,28 +149,6 @@ protected:
 		if (m_client == -1) return false;
 		send(m_client, pack.Data(), pack.Size(), 0);//6:2个字节的包头，4个字节的长度
 		return TRUE;
-	}
-	bool GetFilePath(std::string& strPath)
-	{
-		if ((m_packet.sCmd >= 2) && (m_packet.sCmd <= 4) || (m_packet.sCmd == 9))
-		{
-			strPath = m_packet.strData;
-			return true;
-		}
-		return false;
-	}
-	bool GetMouseEvent(MOUSEEV& mouse)
-	{
-		if (m_packet.sCmd == 5)
-		{
-			memcpy(&mouse, m_packet.strData.c_str(), sizeof(MOUSEEV));
-			return true;
-		}
-		return false;
-	}
-	CPacket& GetPacket()
-	{
-		return m_packet;
 	}
 	void CloseClient()
 	{
