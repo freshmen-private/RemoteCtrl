@@ -37,46 +37,20 @@ int main()
         }
         else
         {
-            //先难后易有以下好处：1、进度可控；2、方便对接；3、可行性评估，提早暴露风险
-            // TODO: socket, listen, accept, read, write, close
-            //套接字初始化
-            //CServerSocket* pserver = CServerSocket::getInstance();
             CCommand cmd;
             CServerSocket* pserver = CServerSocket::getInstance();
-            int count = 0;
-            if (pserver->InitSocket() == false)
+            int ret = pserver->Run(&CCommand::RunCommand, &cmd);
+            switch (ret)
             {
+            case -1:
                 MessageBox(NULL, _T("网络初始化失败，未能成功初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
                 exit(0);
+                break;
+            case -2:
+                MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                exit(0);
+                break;
             }
-            while (CServerSocket::getInstance() != NULL)
-            {
-                if (pserver->AcceptClient() == false)
-                {
-                    if(count >=3)
-                    {
-                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-                        exit(0);
-                    }
-                    MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-                    count++;
-                }
-                int ret = pserver->DealCommand();
-                TRACE("sCmd:%d\n", ret);
-                if(ret >= 0)
-                {
-                    ret = cmd.ExcuteCommand(ret);
-                    if (ret != 0)
-                    {
-                        TRACE("执行命令失败:%d ret = %d\n", pserver->GetPacket().sCmd, ret);
-                    }
-                    pserver->CloseClient();
-                }
-            }
-            //TODO
-            
-            //全局的静态变量
-            
         }
     }
     else
