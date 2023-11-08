@@ -97,7 +97,6 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemoteClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPacket)
 	ON_BN_CLICKED(IDC_BTN_WATCH, &CRemoteClientDlg::OnBnClickedBtnWatch)
 	//ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
@@ -145,7 +144,7 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	UpdateData(FALSE);
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
-	m_isFull = false;
+	
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -364,7 +363,7 @@ void CRemoteClientDlg::OnDownloadFile()
 	HTREEITEM hSelected = m_Tree.GetSelectedItem();
 	strFile = GetPath(hSelected) + strFile;
 	int ret = CClientController::getInstance()->DownFile(strFile);
-	if (ret == 0)
+	if (ret < 0)
 	{
 		MessageBox(_T("下载失败\n"));
 		TRACE("下载失败 ret = %d\n", ret);
@@ -400,33 +399,6 @@ void CRemoteClientDlg::OnRunFile()
 	{
 		AfxMessageBox("打开文件命令执行失败\n");
 	}
-}
-
-LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
-{
-	int ret = 0;
-	int cmd = wParam >> 1;
-	switch (cmd)
-	{
-	case 4:
-	{
-		CString strFile = (LPCSTR)lParam;
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-		break;
-	}
-	case 5:
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-		break;
-	case 6:
-	case 7:
-	case 8:
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		break;
-	default:
-		ret = -1;
-	}
-	
-	return ret;
 }
 
 

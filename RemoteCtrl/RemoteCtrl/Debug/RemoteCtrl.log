@@ -1,0 +1,16 @@
+﻿  pch.cpp
+  Command.cpp
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(55,19): warning C4018: “>”: 有符号/无符号不匹配
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(71,21): warning C4018: “<”: 有符号/无符号不匹配
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Command.h(13,9): warning C4615: #pragma warning: 未知的用户警告类型
+  LockDialog.cpp
+  MyTool.cpp
+  RemoteCtrl.cpp
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(55,19): warning C4018: “>”: 有符号/无符号不匹配
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(71,21): warning C4018: “<”: 有符号/无符号不匹配
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Command.h(13,9): warning C4615: #pragma warning: 未知的用户警告类型
+  ServerSocket.cpp
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(55,19): warning C4018: “>”: 有符号/无符号不匹配
+F:\RemoteControl\RemoteCtrl\RemoteCtrl\RemoteCtrl\Packet.h(71,21): warning C4018: “<”: 有符号/无符号不匹配
+  正在生成代码...
+  RemoteCtrl.vcxproj -> F:\RemoteControl\RemoteCtrl\RemoteCtrl\Debug\RemoteCtrl.exe

@@ -96,6 +96,7 @@ BOOL CRemoteClientApp::InitInstance()
 	if (pShellManager != nullptr)
 	{
 		delete pShellManager;
+		TRACE("delete shellmanager\n");
 	}
 
 #if !defined(_AFXDLL) && !defined(_AFX_NO_MFC_CONTROLS_IN_DIALOGS)
