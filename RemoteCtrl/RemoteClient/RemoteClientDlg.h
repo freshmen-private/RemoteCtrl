@@ -37,16 +37,11 @@ private:
 	CImage m_image;//图片缓存
 	bool m_isFull;//缓存是否有数据，true表示有缓存数据，false表示没有缓存数据
 	bool m_isClosed;//监视是否关闭
-private:
-	static void threadEntryForWatchData(void* arg);
-	void threadWatchData();
-	static void threadEntryForDownFile(void* arg);
-	void threadDownFile();
+private:  
 	void LoadFileCurrent();
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeletTreeChildrenItem(HTREEITEM hTree);
-	int SendCommandPacket(int nCmd, bool bAutoClose = TRUE, BYTE* pData = NULL, size_t nLength = 0);
 
 // 实现
 protected:
@@ -63,9 +58,7 @@ public:
 	afx_msg void OnBnClickedButtonTest();
 	DWORD m_server_address;
 	CString m_nPort;
-	afx_msg void OnEnChangeEditPort();
 	afx_msg void OnBnClickedBtnFileinfo();
-	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
 	CTreeCtrl m_Tree;
 	afx_msg void OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
@@ -76,4 +69,7 @@ public:
 	afx_msg void OnRunFile();
 	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnWatch();
+	//afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnEnChangeEditPort();
 };

@@ -99,7 +99,7 @@ public:
 	{
 		return nLength + sizeof(DWORD) + sizeof(WORD);
 	}
-	const char* Data()
+	const char* Data(std::string& strOut) const
 	{
 		strOut.resize(nLength + sizeof(DWORD) + sizeof(WORD));
 		BYTE* pData = (BYTE*)strOut.c_str();
@@ -117,7 +117,7 @@ public:
 	WORD sCmd;//控制命令
 	std::string strData;//包数据
 	WORD sSum;//和校验
-	std::string strOut;
+	//std::string strOut;//整个包的数据
 };
 #pragma pack(pop)
 //单例对象
@@ -162,7 +162,7 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSocket(DWORD nIP, int nPort)
+	bool InitSocket()
 	{
 		//TODO 校验socket是否创建成功
 		if (m_sock != INVALID_SOCKET)
@@ -177,8 +177,8 @@ public:
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(nIP);
-		serv_addr.sin_port = htons(nPort);
+		serv_addr.sin_addr.s_addr = htonl(m_nIP);
+		serv_addr.sin_port = htons(m_nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE)
 		{
 			AfxMessageBox("指定的IP地址不存在\n");
@@ -194,11 +194,6 @@ public:
 		}
 
 		return true;
-	}
-	void CloseSocket()
-	{
-		closesocket(m_sock);
-		m_sock = INVALID_SOCKET;
 	}
 
 #define BUFFER_SIZE 409600
@@ -236,10 +231,12 @@ public:
 		send(m_sock, pData, nSize, 0);
 		return TRUE;
 	}
-	bool Send(CPacket& pack)
+	bool Send(const CPacket& pack)
 	{
 		if (m_sock == -1) return false;
-		send(m_sock, pack.Data(), pack.Size(), 0);//6:2个字节的包头，4个字节的长度
+		std::string strOut;
+		pack.Data(strOut);
+		send(m_sock, strOut.c_str(), strOut.size(), 0);//6:2个字节的包头，4个字节的长度
 		return TRUE;
 	}
 	bool GetFilePath(std::string& strPath)
@@ -264,7 +261,22 @@ public:
 	{
 		return m_packet;
 	}
+
+	void CloseSocket()
+	{
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
+
+	void UpdateAddress(int nIP, int nPort)
+	{
+		m_nIP = nIP;
+		m_nPort = nPort;
+	}
+
 private:
+	int m_nIP;//地址
+	int m_nPort;//端口
 	SOCKET m_sock;
 	CPacket m_packet;
 	std::vector<char> m_buffer;
@@ -272,8 +284,12 @@ private:
 	CClientSocket(const CClientSocket& ss)
 	{
 		m_sock = ss.m_sock;
+		m_nIP = ss.m_nIP;
+		m_nPort = ss.m_nPort;
 	}
-	CClientSocket()
+	CClientSocket() :
+		m_nIP(INADDR_ANY),
+		m_nPort(0)
 	{
 		if (InitSockEnv() == FALSE)
 		{
