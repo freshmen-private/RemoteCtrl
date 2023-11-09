@@ -3,6 +3,8 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#include <list>
+#include <map>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -11,7 +13,7 @@ class CPacket
 public:
 	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
 	//打包的重构
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent)
 	{
 		sHead = 0xFEFF;
 		nLength = nSize + 2 * sizeof(WORD);
@@ -30,6 +32,7 @@ public:
 		{
 			sSum += BYTE(strData[j]) & 0xFF;
 		}
+		this->hEvent = hEvent;
 	}
 	//解包的重构
 	CPacket(const CPacket& pack)
@@ -39,8 +42,9 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
+		hEvent = pack.hEvent;
 	}
-	CPacket(const BYTE* pData, int& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0)
+	CPacket(const BYTE* pData, int& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0), hEvent(INVALID_HANDLE_VALUE)
 	{
 		int i = 0;
 		for (; i < nSize; i++)
@@ -92,6 +96,7 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
+			hEvent = pack.hEvent;
 		}
 		return *this;
 	}
@@ -117,7 +122,7 @@ public:
 	WORD sCmd;//控制命令
 	std::string strData;//包数据
 	WORD sSum;//和校验
-	//std::string strOut;//整个包的数据
+	HANDLE hEvent;
 };
 #pragma pack(pop)
 //单例对象
@@ -275,6 +280,8 @@ public:
 	}
 
 private:
+	std::list<CPacket>m_listSend;
+	std::map<HANDLE, std::list<CPacket>> m_mapAck;
 	int m_nIP;//地址
 	int m_nPort;//端口
 	SOCKET m_sock;
@@ -302,8 +309,11 @@ private:
 	~CClientSocket()
 	{
 		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
+	static void threadEntry(void* arg);
+	void threadFunc();
 	BOOL InitSockEnv()
 	{
 		WSADATA data;
