@@ -14,8 +14,8 @@ CClientController* CClientController::getInstance()
 		TRACE("CClientController size is %d\n", sizeof(*m_instance));
 		struct { UINT nMsg; MSGFUNC func; }MsgFuncs[] = 
 		{ 
-			{WM_SEND_PACK, &CClientController::OnSendPack},
-			{WM_SEND_DATA, &CClientController::OnSendData},
+			/*{WM_SEND_PACK, &CClientController::OnSendPack},
+			{WM_SEND_DATA, &CClientController::OnSendData},*/
 			{WM_SHOW_STATUS, &CClientController::OnShowStatus},
 			{WM_SHOW_WATCH, &CClientController::OnShowWatch},
 			{(UINT)-1, NULL}
@@ -52,20 +52,22 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* plstPacks)
 {
 	CClientSocket* pClient = CClientSocket::getInstance();
-	if (pClient->InitSocket() == false) return false;
 	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	//TODO 不应该直接发送，而是投入队列
-	pClient->Send(CPacket(nCmd, pData, nLength, hEvent));
-	int cmd = DealCommand();
-	//TRACE("ack:%d\n", pClient->GetPacket().sCmd);
-	if (bAutoClose == TRUE)
+	std::list<CPacket> lstPacks;
+	if (plstPacks == NULL)
 	{
-		CloseSocket();
+		plstPacks = &lstPacks;
 	}
-	return cmd;
+	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks);
+	if (plstPacks->size() > 0)
+	{
+		return plstPacks->front().sCmd;
+	}
+	return -1;
 }
 
 int CClientController::DownFile(CString strPath)
@@ -94,7 +96,7 @@ void CClientController::StartWatchScreen()
 {
 	m_isClosed = false;
 	//m_watchDlg.SetParent(&m_remoteDlg);
-	HANDLE m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchEntry, 0, this);
+	m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchEntry, 0, this);
 	m_watchDlg.DoModal();
 	m_isClosed = true;
 	WaitForSingleObject(m_hThreadWatch, 500);
@@ -106,10 +108,11 @@ void CClientController::threadWatchScreen()
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false)
 		{
-			int ret = SendCommandPacket(6);
+			std::list<CPacket> lstPacks;
+			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
 			if (ret == 6)
 			{
-				if (GetImage(m_remoteDlg.GetImage()) == 0)
+				if (CMyTool::Bytes2Image(m_remoteDlg.GetImage(), lstPacks.front().strData) == 0)
 				{
 					m_watchDlg.SetImageStatus(true);
 				}
@@ -182,6 +185,7 @@ void CClientController::threadDownloadEntry(void* arg)
 
 void CClientController::threadFunc()
 {
+
 	MSG msg;
 	while (::GetMessage(&msg, NULL, 0, 0))
 	{
@@ -220,20 +224,20 @@ unsigned __stdcall CClientController::threadEntry(void* arg)
 	_endthreadex(0);
 	return 0;
 }
+//
+//LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//	CClientSocket* pClient = CClientSocket::getInstance();
+//	CPacket* pPacket = (CPacket*)wParam;
+//	return pClient->Send(*pPacket);
+//}
 
-LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-	CClientSocket* pClient = CClientSocket::getInstance();
-	CPacket* pPacket = (CPacket*)wParam;
-	return pClient->Send(*pPacket);
-}
-
-LRESULT CClientController::OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
-{
-	CClientSocket* pClient = CClientSocket::getInstance();
-	char* pBuffer = (char*)wParam;
-	return pClient->Send(pBuffer, (int)lParam);
-}
+//LRESULT CClientController::OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
+//{
+//	CClientSocket* pClient = CClientSocket::getInstance();
+//	char* pBuffer = (char*)wParam;
+//	return pClient->Send(pBuffer, (int)lParam);
+//}
 
 LRESULT CClientController::OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {

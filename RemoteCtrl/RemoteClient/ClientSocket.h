@@ -230,19 +230,29 @@ public:
 		return -1;
 	}
 
-	bool Send(const char* pData, int nSize)
+	
+	bool SendPacket(const CPacket& pack, std::list<CPacket>&lstPacks)
 	{
-		if (m_sock == -1) return false;
-		send(m_sock, pData, nSize, 0);
-		return TRUE;
-	}
-	bool Send(const CPacket& pack)
-	{
-		if (m_sock == -1) return false;
-		std::string strOut;
-		pack.Data(strOut);
-		send(m_sock, strOut.c_str(), strOut.size(), 0);//6:2个字节的包头，4个字节的长度
-		return TRUE;
+		if (m_sock == INVALID_SOCKET)
+		{
+			if (InitSocket() == false) return false;
+			_beginthread(&CClientSocket::threadEntry, 0, this);
+		}
+		m_listSend.push_back(pack);
+		WaitForSingleObject(pack.hEvent, INFINITE);
+		std::map<HANDLE, std::list<CPacket>>::iterator it;
+		it = m_mapAck.find(pack.hEvent);
+		if (it != m_mapAck.end())
+		{
+			std::list<CPacket>::iterator i;
+			for (i = it->second.begin(); i != it->second.end(); i++)
+			{
+				lstPacks.push_back(*i);
+			}
+			m_mapAck.erase(it);
+			return true;
+		}
+		return false;
 	}
 	bool GetFilePath(std::string& strPath)
 	{
@@ -275,8 +285,11 @@ public:
 
 	void UpdateAddress(int nIP, int nPort)
 	{
-		m_nIP = nIP;
-		m_nPort = nPort;
+		if(m_nIP != nIP || m_nPort != nPort)
+		{
+			m_nIP = nIP;
+			m_nPort = nPort;
+		}
 	}
 
 private:
@@ -296,7 +309,8 @@ private:
 	}
 	CClientSocket() :
 		m_nIP(INADDR_ANY),
-		m_nPort(0)
+		m_nPort(0),
+		m_sock(INVALID_SOCKET)
 	{
 		if (InitSockEnv() == FALSE)
 		{
@@ -332,6 +346,12 @@ private:
 			TRACE("delete cclientsocket\n");
 		}
 	}
+	bool Send(const char* pData, int nSize)
+	{
+		if (m_sock == -1) return false;
+		return send(m_sock, pData, nSize, 0);
+	}
+	bool Send(const CPacket& pack);
 	static CClientSocket* m_instance;
 	class CHelper
 	{

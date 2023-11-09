@@ -30,10 +30,6 @@ void CClientSocket::threadEntry(void* arg)
 
 void CClientSocket::threadFunc()
 {
-	if (InitSocket() == false)
-	{
-		return;
-	}
 	std::string strBuffer;
 	strBuffer.resize(BUFFER_SIZE);
 	char* pBuffer = (char*)strBuffer.c_str();
@@ -42,6 +38,7 @@ void CClientSocket::threadFunc()
 	{
 		if (m_listSend.size() > 0)
 		{
+			TRACE("size of m_listSend = %d\n", m_listSend.size());
 			CPacket& head = m_listSend.front();
 			if (Send(head) == false)
 			{
@@ -71,6 +68,14 @@ void CClientSocket::threadFunc()
 			}
 			m_listSend.pop_front();
 		}
-		
 	}
+	CloseSocket();
+}
+
+bool CClientSocket::Send(const CPacket& pack)
+{
+	if (m_sock == -1) return false;
+	std::string strOut;
+	pack.Data(strOut);
+	return send(m_sock, strOut.c_str(), strOut.size(), 0);
 }
