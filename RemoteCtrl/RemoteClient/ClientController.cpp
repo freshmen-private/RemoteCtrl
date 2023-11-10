@@ -53,22 +53,10 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* plstPacks)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
 {
 	CClientSocket* pClient = CClientSocket::getInstance();
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	std::list<CPacket> lstPacks;
-	if (plstPacks == NULL)
-	{
-		plstPacks = &lstPacks;
-	}
-	int ret = pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks, bAutoClose);
-	CloseHandle(hEvent);//回收时间句柄，防止资源耗尽
-	if (plstPacks->size() > 0)
-	{
-		return plstPacks->front().sCmd;
-	}
-	return -1;
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
 }
 
 int CClientController::DownFile(CString strPath)
@@ -110,7 +98,9 @@ void CClientController::threadWatchScreen()
 		if (m_watchDlg.isFull() == false)
 		{
 			std::list<CPacket> lstPacks;
-			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks);
+			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0);
+			//TODO 添加消息相应函数WM_SEND_PACK_ACK
+			//控制发送频率
 			if (ret == 6)
 			{
 				if (CMyTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0)
@@ -147,7 +137,7 @@ void CClientController::threadDownLoadFile()
 	CClientSocket* pClient = CClientSocket::getInstance();
 	do 
 	{
-		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
 		long long nlength = *(long long*)pClient->GetPacket().strData.c_str();
 
 		if (nlength == 0)
