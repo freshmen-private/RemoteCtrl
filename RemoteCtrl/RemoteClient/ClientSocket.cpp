@@ -61,9 +61,12 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed
 	UINT nMode = isAutoClosed ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	bool ret =  PostThreadMessage(m_nThreadID, WM_SEND_PACK, 
-		(WPARAM)new PACKET_DATA((BYTE*)strOut.c_str(), 
-			strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	PACKET_DATA* pData = new PACKET_DATA((BYTE*)strOut.c_str(),strOut.size(), nMode, wParam);
+	bool ret =  PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)pData, (LPARAM)hWnd);
+	if (!ret)
+	{
+		delete pData;
+	}
 	return ret;
 }
 
@@ -255,7 +258,7 @@ bool CClientSocket::Send(const CPacket& pack)
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//定义一个消息的数据结构（数据和数据长度），一个回调消息的数据结构（HWND）
 	PACKET_DATA data = *(PACKET_DATA*)wParam;
-	delete(PACKET_DATA*)wParam;
+	delete (PACKET_DATA*)wParam;
 	HWND hWnd = (HWND)lParam;
 	if(InitSocket() == true)
 	{
