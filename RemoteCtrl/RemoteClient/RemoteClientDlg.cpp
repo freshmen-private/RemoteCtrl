@@ -419,11 +419,11 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 	}
 	else
 	{
-		CPacket* pPacket = (CPacket*)wParam;
-		if (pPacket != NULL)
+		if (wParam != NULL)
 		{
-			CPacket& head = *pPacket;
-			switch (pPacket->sCmd)
+			CPacket head = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
+			switch (head.sCmd)
 			{
 			case 1:
 			{
