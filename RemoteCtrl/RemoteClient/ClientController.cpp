@@ -53,10 +53,17 @@ LRESULT CClientController::SendMessage(MSG msg)
 	return info.result;
 }
 
-bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
 {
 	CClientSocket* pClient = CClientSocket::getInstance();
-	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose, wParam);
+}
+
+void CClientController::DownloadEnd()
+{
+	m_statusDlg.ShowWindow(SW_HIDE);
+	m_remoteDlg.EndWaitCursor();
+	m_remoteDlg.MessageBox(_T("下载完成\n"), _T("完成"));
 }
 
 int CClientController::DownFile(CString strPath)
@@ -67,11 +74,18 @@ int CClientController::DownFile(CString strPath)
 		m_strRemote = strPath;
 		m_strLocal = dlg.GetPathName();
 		CString strLocal = dlg.GetPathName();
-		m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadEntry, 0, this);
-		if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT)
+		FILE* pFile = fopen(m_strLocal, "wb+");
+		if (pFile == NULL)
 		{
+			AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建\n"));
 			return -1;
 		}
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
+		//m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadEntry, 0, this);
+		/*if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT)
+		{
+			return -1;
+		}*/
 		m_statusDlg.BeginWaitCursor();
 		m_statusDlg.m_Info.SetWindowText(_T("命令正在执行"));
 		m_statusDlg.ShowWindow(SW_SHOW);
@@ -137,7 +151,7 @@ void CClientController::threadDownLoadFile()
 	CClientSocket* pClient = CClientSocket::getInstance();
 	do 
 	{
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(),(WPARAM)pFile);
 		long long nlength = *(long long*)pClient->GetPacket().strData.c_str();
 
 		if (nlength == 0)
