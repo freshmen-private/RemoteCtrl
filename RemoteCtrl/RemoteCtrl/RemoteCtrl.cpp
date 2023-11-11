@@ -57,7 +57,16 @@ void WriteRegisterTable(const CString& strPath)
     }
     RegCloseKey(hKey);
 }
-
+/// <summary>
+/// 改bug的思路
+/// 0 观察现象
+/// 1 先确定范围
+/// 2 分析错误的可能性
+/// 3 调试或者打日志
+/// 4 处理错误
+/// 5 验证/长时间稳定验证/多次验证/多条件的验证
+/// </summary>
+/// <param name="strPath"></param>
 void WriteStartUpDir(const CString& strPath)
 {
     CString strCmd = GetCommandLine();
@@ -75,7 +84,7 @@ void ChooseAutoInvoke()
 {
     TCHAR wcsSystem[MAX_PATH] = _T("");
     //CString strPath = CString(wcsSystem) + CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));
-    CString strPath = _T("C:\\Users\\Liang\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl");
+    CString strPath = _T("C:\\Users\\zzz\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\RemoteCtrl");
     if (PathFileExists(strPath))
     {
         return;
@@ -97,8 +106,51 @@ void ChooseAutoInvoke()
     }
 }
 
+void ShowError()
+{
+    LPWSTR lpMessageBuf = NULL;
+    FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_ALLOCATE_BUFFER,
+        NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPWSTR)&lpMessageBuf, 0, NULL);
+    OutputDebugString(lpMessageBuf);
+    LocalFree(lpMessageBuf);
+    exit(0);
+}
+
+bool isAdmin()
+{
+    HANDLE hToken = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
+    {
+        ShowError();
+        return FALSE;
+    }
+    TOKEN_ELEVATION eve;
+    DWORD len = 0;
+    if (!GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len))
+    {
+        ShowError();
+        return FALSE;
+    }
+    if (len == sizeof(eve))
+    {
+        return eve.TokenIsElevated;
+    }
+    printf("length of token information is %d\r\n", len);
+    return FALSE;
+}
+
 int main()
 {
+    if (isAdmin())
+    {
+        OutputDebugString(L"current is run as administrator\n");
+    }
+    else
+    {
+        OutputDebugString(L"current is run as normal user\n");
+    }
     int nRetCode = 0;
 
     HMODULE hModule = ::GetModuleHandle(nullptr);
