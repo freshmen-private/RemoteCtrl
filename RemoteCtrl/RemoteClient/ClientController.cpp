@@ -41,18 +41,6 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 	return m_remoteDlg.DoModal();
 }
 
-LRESULT CClientController::SendMessage(MSG msg)
-{
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (hEvent == NULL) return -2;
-	MSGINFO info(msg);
-	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)&hEvent);
-	//MSGINFO& inf = m_mapMassage.find(uuid)->second;
-	WaitForSingleObject(hEvent, INFINITE);
-	CloseHandle(hEvent);
-	return info.result;
-}
-
 bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
 {
 	CClientSocket* pClient = CClientSocket::getInstance();
@@ -138,57 +126,6 @@ void CClientController::threadWatchEntry(void* arg)
 {
 	CClientController* thiz = (CClientController*)arg;
 	thiz->threadWatchScreen();
-	_endthread();
-}
-
-void CClientController::threadDownLoadFile()
-{
-	FILE* pFile = fopen(m_strLocal, "wb+");
-	if (pFile == NULL)
-	{
-		AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建\n"));
-		m_statusDlg.ShowWindow(SW_HIDE);
-		m_remoteDlg.EndWaitCursor();
-		return;
-	}
-	CClientSocket* pClient = CClientSocket::getInstance();
-	do 
-	{
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(),(WPARAM)pFile);
-		long long nlength = *(long long*)pClient->GetPacket().strData.c_str();
-
-		if (nlength == 0)
-		{
-			AfxMessageBox("文件长度为0，或者无法读取文件\n");
-			return;
-		}
-		long long nCount = 0;
-		while (nCount < nlength)
-		{
-			pClient->DealCommand();
-			if (ret < 0)
-			{
-				AfxMessageBox("传输失败\n");
-				TRACE("传输失败, ret = %d\n", ret);
-				break;
-			}
-			fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
-			nCount += pClient->GetPacket().strData.size();
-		}
-	} while (false);
-	
-	fclose(pFile);
-	pClient->CloseSocket();
-	m_statusDlg.ShowWindow(SW_HIDE);
-	m_remoteDlg.EndWaitCursor();
-	m_remoteDlg.MessageBox(_T("下载完成\n"), _T("完成"));
-	m_remoteDlg.LoadFileInfo();
-}
-
-void CClientController::threadDownloadEntry(void* arg)
-{
-	CClientController* thiz = (CClientController*)arg;
-	thiz->threadDownLoadFile();
 	_endthread();
 }
 
