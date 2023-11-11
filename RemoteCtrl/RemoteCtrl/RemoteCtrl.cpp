@@ -141,20 +141,43 @@ bool isAdmin()
     return FALSE;
 }
 
+void RunAsAdmin()
+{
+    HANDLE hToken = NULL;
+    bool ret = LogonUser(L"Administrator", NULL, NULL, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken);
+    if (!ret)
+    {
+        ShowError();
+        exit(0);
+    }
+    OutputDebugString(L"current administrator success!\n");
+    STARTUPINFO si = { 0 };
+    PROCESS_INFORMATION pi = { 0 };
+    TCHAR sPath[MAX_PATH] = _T("");
+    GetCurrentDirectory(MAX_PATH, sPath);
+    CString strCmd = sPath;
+    strCmd += _T("RemoteCtrl.exe");
+    //ret = CreateProcessWithTokenW(hToken, LOGON_WITH_PROFILE, NULL, (LPWSTR)(LPCWSTR)strCmd, CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &si, &pi);
+    ret = CreateProcessWithLogonW(
+        _T("Administrator"), NULL, NULL, LOGON_WITH_PROFILE, NULL, 
+        (LPWSTR)(LPCWSTR)strCmd, CREATE_UNICODE_ENVIRONMENT, NULL,
+        NULL, &si, &pi);
+    if (!ret)
+    {
+        ShowError();
+        MessageBox(NULL, _T("创建进程失败"), _T("程序错误"), 0);
+        exit(0);
+    }
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    CloseHandle(hToken);
+}
+
 int main()
 {
-    if (isAdmin())
-    {
-        OutputDebugString(L"current is run as administrator\n");
-    }
-    else
-    {
-        OutputDebugString(L"current is run as normal user\n");
-    }
     int nRetCode = 0;
-
     HMODULE hModule = ::GetModuleHandle(nullptr);
-
     if (hModule != nullptr)
     {
         // 初始化 MFC 并在失败时显示错误
@@ -166,6 +189,16 @@ int main()
         }
         else
         {
+            if (isAdmin())
+            {
+                OutputDebugString(L"current is run as administrator\n");
+            }
+            else
+            {
+                OutputDebugString(L"current is run as normal user\n");
+                RunAsAdmin();
+                return nRetCode;
+            }
             CCommand cmd;
             ChooseAutoInvoke();
             CServerSocket* pserver = CServerSocket::getInstance();
