@@ -144,6 +144,7 @@
     <ClInclude Include="Command.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LockDialog.h" />
+    <ClInclude Include="MyQueue.h" />
     <ClInclude Include="MyTool.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="pch.h" />

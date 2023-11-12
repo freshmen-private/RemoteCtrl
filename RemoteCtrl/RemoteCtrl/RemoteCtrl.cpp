@@ -6,6 +6,7 @@
 #include "ServerSocket.h"
 #include "Command.h"
 #include <conio.h>
+#include "MyQueue.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -89,36 +90,50 @@ void threadQueueEntry(HANDLE hIOCP)
     }
     _endthread();//代码到此为止，会导致本地变量无法调用析构，从而使得内存发生泄露
 }
-int main()
+/// <summary>
+/// 性能 CMyQueue push性能高，pop性能仅1/4
+/// list push性能比pop低
+/// </summary>
+void test()
 {
-    if (!CMyTool::Init()) return 1;
-    HANDLE hIOCP = INVALID_HANDLE_VALUE;//IO Completion Port
-    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);//epoll的区别1:
-    HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);
-    printf("press anykey to exit...\n");
-    ULONGLONG tick = GetTickCount64();
-    while (_kbhit() != 0)
+    CMyQueue<std::string>lstStrings;
+    ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64(), total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000)
     {
-        if (GetTickCount64() - tick > 1000)
+        if (GetTickCount64() - tick0 > 13)
         {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCPPARAM), (ULONG_PTR)new IOCPPARAM(IocpListPush, "hello world"), NULL);
-            tick = GetTickCount64();
+            lstStrings.PushBack("hello world");
+            tick0 = GetTickCount64();
         }
-        if (GetTickCount64() - tick > 1000)
+        if (GetTickCount64() - tick > 20)
         {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCPPARAM), (ULONG_PTR)new IOCPPARAM(IocpListPush, "hello world"), NULL);
+            std::string str;
+            lstStrings.PopFront(str);
             tick = GetTickCount64();
+            TRACE("pop from queue: %s\n", str.c_str());
         }
         Sleep(1);
     }
-    if (hIOCP != NULL)
-    {// TODO 唤醒完成端口
-        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);
-        WaitForSingleObject(hThread, INFINITE);
+    printf("exit done size %d\n", lstStrings.Size());
+    lstStrings.Clear();
+    printf("exit done size %d\n", lstStrings.Size());
+}
+/// <summary>
+/// 1、bug测试/功能测试
+/// 2、关键因素测试（内存泄露、运行稳定性、条件性）
+/// 3、压力测试（可靠性测试）
+/// 4、性能测试
+/// </summary>
+/// <returns></returns>
+int main()
+{
+    if (!CMyTool::Init()) return 1;
+    for (int i = 0; i < 10; i++)
+    {
+        test();
     }
-    CloseHandle(hIOCP);
-    printf("exit done\n");
-    exit(0);
+    
+    //exit(0);
     /*if (CMyTool::isAdmin())
     {
         if (!CMyTool::Init()) return 1;
