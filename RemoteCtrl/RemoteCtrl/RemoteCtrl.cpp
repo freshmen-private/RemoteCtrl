@@ -5,6 +5,7 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "Command.h"
+#include <conio.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -51,9 +52,74 @@ bool ChooseAutoInvoke(const CString& strPath)
     return true;
 }
 
+#define IOCP_LIST_EMPTY 0
+#define IOCP_LIST_PUSH 1
+#define IOCP_LIST_POP 2
+enum {
+    IocpListEmpty = 0,
+    IocpListPush,
+    IocpListPop
+};
+
+typedef struct iocpParam {
+    int nOperator;
+    std::string strData;
+    iocpParam(int op, const char* sData){
+        nOperator = op;
+        strData = sData;
+    }
+    iocpParam() {
+        nOperator = -1;
+    }
+}IOCPPARAM;
+
+void threadQueueEntry(HANDLE hIOCP)
+{
+    std::list<std::string> lstString;
+    DWORD dwTransferred = 0;
+    ULONG_PTR CompletionKey = 0;
+    OVERLAPPED* pOverlapped = NULL;
+    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE))
+    {
+        if (dwTransferred == 0 && CompletionKey == NULL)
+        {
+            printf("thread is prepare to exit");
+            break;
+        }
+    }
+    _endthread();//代码到此为止，会导致本地变量无法调用析构，从而使得内存发生泄露
+}
 int main()
 {
-    if (CMyTool::isAdmin())
+    if (!CMyTool::Init()) return 1;
+    HANDLE hIOCP = INVALID_HANDLE_VALUE;//IO Completion Port
+    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);//epoll的区别1:
+    HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);
+    printf("press anykey to exit...\n");
+    ULONGLONG tick = GetTickCount64();
+    while (_kbhit() != 0)
+    {
+        if (GetTickCount64() - tick > 1000)
+        {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCPPARAM), (ULONG_PTR)new IOCPPARAM(IocpListPush, "hello world"), NULL);
+            tick = GetTickCount64();
+        }
+        if (GetTickCount64() - tick > 1000)
+        {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCPPARAM), (ULONG_PTR)new IOCPPARAM(IocpListPush, "hello world"), NULL);
+            tick = GetTickCount64();
+        }
+        Sleep(1);
+    }
+    if (hIOCP != NULL)
+    {// TODO 唤醒完成端口
+        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);
+        WaitForSingleObject(hThread, INFINITE);
+    }
+    CloseHandle(hIOCP);
+    printf("exit done\n");
+    exit(0);
+    /*if (CMyTool::isAdmin())
     {
         if (!CMyTool::Init()) return 1;
         if (ChooseAutoInvoke(INVOKE_PATH))
@@ -79,6 +145,6 @@ int main()
             CMyTool::ShowError();
             return 1;
         }
-    }
+    }*/
     return 0;
 }
