@@ -2,12 +2,14 @@
 #include <atomic>
 #include "pch.h"
 #include <list>
+#include "MyThread.h"
 
 template<class T>
 class CMyQueue
 {//线程安全的队列 利用IOCP实现
 public:
-	enum {
+	enum 
+	{
 		EQNone,
 		EQPush,
 		EQPop,
@@ -41,7 +43,7 @@ public:
 			m_hThread = (HANDLE)_beginthread(&CMyQueue<T>::threadEntry, 0, this);
 		}
 	}
-	~CMyQueue()
+	virtual ~CMyQueue()
 	{
 		if (m_lock) return;
 		m_lock = TRUE;
@@ -67,7 +69,7 @@ public:
 		TRACE("pushback ret = %d, %08X\n", ret, pParam);
 		return ret;
 	}
-	bool PopFront(T& data)
+	virtual bool PopFront(T& data)
 	{
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		IocpParam pParam(EQPop, data, hEvent);
@@ -120,14 +122,14 @@ public:
 		TRACE("clear ret = %d, %08X\n", ret, pParam);
 		return ret;
 	}
-private:
+protected:
 	static void threadEntry(void* arg)
 	{
 		CMyQueue<T>* thiz = (CMyQueue<T>*) arg;
 		thiz->threadMain();
 		_endthread();
 	}
-	void DealParam(PPARAM* pParam)
+	virtual void DealParam(PPARAM* pParam)
 	{
 		switch (pParam->nOperator)
 		{
@@ -145,7 +147,7 @@ private:
 				SetEvent(pParam->hEvent);
 			break;
 		case EQSize:
-			pParam->nOperator = m_lstData.size();
+			pParam->nOperator = (int)m_lstData.size();
 			if (pParam->hEvent != NULL)
 				SetEvent(pParam->hEvent);
 			break;
@@ -158,7 +160,7 @@ private:
 			break;
 		}
 	}
-	void threadMain()
+	virtual void threadMain()
 	{
 		PPARAM* pParam = NULL;
 		DWORD dwTransferred = 0;
@@ -188,11 +190,102 @@ private:
 		m_hCompletionPort = NULL;
 		CloseHandle(hTemp);
 	}
-private:
+protected:
 	std::list<T> m_lstData;
 	HANDLE m_hCompletionPort;
 	HANDLE m_hThread;
 	std::atomic<bool> m_lock;//队列正在析构
 };
 
+typedef int(ThreadFuncBase::* MYCALLBACK)();
 
+template<class T>
+class MySendQueue :public CMyQueue<T>, public ThreadFuncBase
+{
+public:
+	typedef int(ThreadFuncBase::* MYCALLBACK)(T& data);
+	MySendQueue(ThreadFuncBase* obj, MYCALLBACK callback) :
+		CMyQueue<T>(),
+		m_base(obj),
+		m_callback(callback)
+	{
+		m_thread.Start();
+		m_thread.UpdateWorker(::ThreadWorker(this, (FUNCTYPE)&MySendQueue<T>::threadTick));
+	}
+	virtual ~MySendQueue() 
+	{
+		m_base = NULL;
+		m_callback = NULL;
+		m_thread.Stop();
+	}
+protected:
+	virtual bool PopFront(T& data) 
+	{
+		return false;
+	}
+	bool PopFront()
+	{
+		typename CMyQueue<T>::IocpParam* Param = new typename CMyQueue<T>::IocpParam(CMyQueue<T>::EQPop, T());
+		if (CMyQueue<T>::m_lock)
+		{
+			delete Param;
+			return false;
+		}
+		bool ret = PostQueuedCompletionStatus(CMyQueue<T>::m_hCompletionPort, sizeof(*Param), (ULONG_PTR)&Param, NULL);
+		if (ret == false)
+		{
+			delete Param;
+			return false;
+		}
+		return ret;
+	}
+	int threadTick()
+	{
+		if (WaitForSingleObject(CMyQueue<T>::m_hThread, 0) != WAIT_TIMEOUT) return 0;
+		if (CMyQueue<T>::m_lstData.size() > 0)
+		{
+			PopFront();
+		}
+		Sleep(1);
+		return 0;
+	}
+
+	virtual void DealParam(typename CMyQueue<T>::PPARAM* pParam)
+	{
+		switch (pParam->nOperator)
+		{
+		case CMyQueue<T>::EQPush:
+			CMyQueue<T>::m_lstData.push_back(pParam->Data);
+			delete pParam;
+			break;
+		case CMyQueue<T>::EQPop:
+			if (CMyQueue<T>::m_lstData.size() > 0)
+			{
+				pParam->Data = CMyQueue<T>::m_lstData.front();
+				if((m_base->*m_callback)(pParam->Data) == 0)
+				{
+					CMyQueue<T>::m_lstData.pop_front();
+				}
+			}
+			delete pParam;
+			break;
+		case CMyQueue<T>::EQSize:
+			pParam->nOperator = (int)CMyQueue<T>::m_lstData.size();
+			if (pParam->hEvent != NULL)
+				SetEvent(pParam->hEvent);
+			break;
+		case CMyQueue<T>::EQClear:
+			CMyQueue<T>::m_lstData.clear();
+			delete pParam;
+			break;
+		default:
+			OutputDebugStringA("unknown operator\n");
+			break;
+		}
+	}
+private:
+	ThreadFuncBase* m_base;
+	MYCALLBACK m_callback;
+	CMyThread m_thread;
+};
+typedef MySendQueue<std::vector<char>>::MYCALLBACK SENDCALLBACK;
