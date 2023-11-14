@@ -25,9 +25,15 @@ public:
 	std::vector<char> m_buffer;
 	ThreadWorker m_worker;//处理函数
 	CMyServer* m_server;//服务器对象
+	PCLIENT m_client;//对应的客户端
+	WSABUF m_wsabuffer;
 };
 template<COperator> class AcceptOverlapped;
 typedef AcceptOverlapped<CAccept> ACCEPTOVERLAPPED;
+template<COperator> class RecvOverlapped;
+typedef RecvOverlapped<CRecv> RECVOVERLAPPED;
+template<COperator> class SendOverlapped;
+typedef SendOverlapped<CSend> SENDOVERLAPPED;
 
 class MyClient
 {
@@ -54,19 +60,32 @@ public:
 	{
 		return &m_received;
 	}
-	sockaddr_in* GetLocalAddr()
+	LPWSABUF RecvWSABuf();
+	LPWSABUF SendWSABuf();
+	DWORD& flags() { return m_flags; }
+	sockaddr_in* GetLocalAddr() { return &m_laddr; }
+	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
+	size_t GetBufferSize()const { return m_buffer.size(); }
+	int Recv()
 	{
-		return &m_laddr;
-	}
-	sockaddr_in* GetRemoteAddr()
-	{
-		return &m_raddr;
+		int ret = recv(m_sock, m_buffer.data() + m_used, (int)(m_buffer.size() - m_used), 0);
+		if (ret <= 0)
+		{
+			return -1;
+		}
+		m_used += (size_t)ret;
+		//TODO 解析数据还没完成
+		return 0;
 	}
 private:
 	SOCKET m_sock;
 	DWORD m_received;
+	DWORD m_flags;
 	std::shared_ptr<ACCEPTOVERLAPPED> m_overlapped;
+	std::shared_ptr<RECVOVERLAPPED> m_recv;
+	std::shared_ptr<SENDOVERLAPPED> m_send;
 	std::vector<char> m_buffer;
+	size_t m_used; //已经使用的缓冲区大小
 	sockaddr_in m_laddr;
 	sockaddr_in m_raddr;
 	bool m_isbusy;
@@ -86,35 +105,25 @@ template<COperator>
 class RecvOverlapped :public COverlapped, ThreadFuncBase
 {
 public:
-	RecvOverlapped() :m_operator(CRecv), m_worker(this, &RecvOverlapped::RecvWorker)
-	{
-		memset(&m_overlapped, 0, sizeof(m_overlapped));
-		m_buffer.resize(1024 * 256);
-	}
+	RecvOverlapped();
 	int RecvWorker()
 	{
-		//TODO
+		int ret = m_client->Recv();
+		return ret;
 	}
 };
-typedef RecvOverlapped<CRecv> RECVOVERLAPPED;
-
-
 
 template<COperator>
 class SendOverlapped :public COverlapped, ThreadFuncBase
 {
 public:
-	SendOverlapped() :m_operator(CSend), m_worker(this, &SendOverlapped::SendWorker)
-	{
-		memset(&m_overlapped, 0, sizeof(m_overlapped));
-		m_buffer.resize(1024 * 256);
-	}
+	SendOverlapped();
 	int SendWorker()
 	{
 		//TODO
+		return -1;
 	}
 };
-typedef SendOverlapped<CSend> SENDOVERLAPPED;
 
 template<COperator>
 class ErrorOverlapped :public COverlapped, ThreadFuncBase
@@ -128,6 +137,7 @@ public:
 	int ErrorWorker()
 	{
 		//TODO
+		return -1;
 	}
 };
 typedef ErrorOverlapped<CError> ERROROVERLAPPED;
@@ -147,42 +157,7 @@ public:
 	}
 	~CMyServer() {}
 
-	bool StartService()
-	{
-		CreateSocket();
-		if (bind(m_sock, (sockaddr*)&m_addr, sizeof(m_addr)) == -1)
-		{
-			closesocket(m_sock);
-			m_sock = INVALID_SOCKET;
-			return false;
-		}
-		if (listen(m_sock, 3) == -1)
-		{
-			closesocket(m_sock);
-			m_sock = INVALID_SOCKET;
-			return false;
-		}
-		m_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 4);
-		if (m_hIOCP == NULL || m_hIOCP == INVALID_HANDLE_VALUE)
-		{
-			closesocket(m_sock);
-			m_sock = INVALID_SOCKET;
-			m_hIOCP = INVALID_HANDLE_VALUE;
-			return false;
-		}
-		CreateIoCompletionPort((HANDLE)m_sock, m_hIOCP, (ULONG_PTR)this, 0);
-		m_pool.Invoke();
-		m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&CMyServer::threadIocp));
-		if (NewAccept())
-		{
-			return false;
-		}
-		/*m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&CMyServer::threadIocp));
-		m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&CMyServer::threadIocp));
-		m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&CMyServer::threadIocp));*/
-		return true;
-	}
-
+	bool StartService();
 	bool NewAccept()
 	{
 		PCLIENT pClient(new MyClient());
@@ -206,51 +181,7 @@ private:
 		setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 	}
 	
-	int threadIocp()
-	{
-		DWORD transferred = 0;
-		ULONG_PTR CompletionKey = 0;
-		OVERLAPPED* lpOverlapped = NULL;
-		if (GetQueuedCompletionStatus(m_hIOCP, &transferred, &CompletionKey, &lpOverlapped, INFINITE))
-		{
-			if(transferred > 0 && CompletionKey != 0)
-			{
-				COverlapped* pOverlapped = CONTAINING_RECORD(lpOverlapped, COverlapped, m_overlapped);
-				switch (pOverlapped->m_operator)
-				{
-				case CAccept:
-				{
-					ACCEPTOVERLAPPED* pAccept = (ACCEPTOVERLAPPED*)pOverlapped;
-					m_pool.DispatchWorker(pAccept->m_worker);
-				}
-					break;
-				case CRecv:
-				{
-					RECVOVERLAPPED* pRecv = (RECVOVERLAPPED*)pOverlapped;
-					m_pool.DispatchWorker(pRecv->m_worker);
-				}
-					break;
-				case CSend:
-				{
-					SENDOVERLAPPED* pSend = (SENDOVERLAPPED*)pOverlapped;
-					m_pool.DispatchWorker(pSend->m_worker);
-				}
-					break;
-				case CError:
-				{
-					ERROROVERLAPPED* pError = (ERROROVERLAPPED*)pOverlapped;
-					m_pool.DispatchWorker(pError->m_worker);
-				}
-					break;
-				}
-			}
-			else
-			{
-				return -1;
-			}
-		}
-		return 0;
-	}
+	int threadIocp();
 private:
 	MyThreadPool m_pool;
 	HANDLE m_hIOCP;
@@ -258,4 +189,3 @@ private:
 	sockaddr_in m_addr;
 	std::map<SOCKET, std::shared_ptr<MyClient>> m_client;
 };
-
