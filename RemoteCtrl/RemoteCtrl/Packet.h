@@ -12,7 +12,7 @@ public:
 	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)
 	{
 		sHead = 0xFEFF;
-		nLength = nSize + 2 * sizeof(WORD);
+		nLength = DWORD(nSize + 2 * sizeof(WORD));
 		sCmd = nCmd;
 		if (nSize > 0)
 		{
@@ -38,9 +38,9 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
-	CPacket(const BYTE* pData, int& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0)
+	CPacket(const BYTE* pData, DWORD& nSize) :sHead(0), nLength(0), sCmd(0), sSum(0)
 	{
-		int i = 0;
+		DWORD i = 0;
 		for (; i < nSize; i++)
 		{
 			if (*(WORD*)(pData + i) == 0xFEFF)

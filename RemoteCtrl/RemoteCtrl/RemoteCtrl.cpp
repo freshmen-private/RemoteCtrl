@@ -7,6 +7,8 @@
 #include "Command.h"
 #include <conio.h>
 #include "MyQueue.h"
+#include <MSWSock.h>
+#include "MyServer.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -52,88 +54,13 @@ bool ChooseAutoInvoke(const CString& strPath)
     }
     return true;
 }
-
-#define IOCP_LIST_EMPTY 0
-#define IOCP_LIST_PUSH 1
-#define IOCP_LIST_POP 2
-enum {
-    IocpListEmpty = 0,
-    IocpListPush,
-    IocpListPop
-};
-
-typedef struct iocpParam {
-    int nOperator;
-    std::string strData;
-    iocpParam(int op, const char* sData){
-        nOperator = op;
-        strData = sData;
-    }
-    iocpParam() {
-        nOperator = -1;
-    }
-}IOCPPARAM;
-
-void threadQueueEntry(HANDLE hIOCP)
-{
-    std::list<std::string> lstString;
-    DWORD dwTransferred = 0;
-    ULONG_PTR CompletionKey = 0;
-    OVERLAPPED* pOverlapped = NULL;
-    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE))
-    {
-        if (dwTransferred == 0 && CompletionKey == NULL)
-        {
-            printf("thread is prepare to exit");
-            break;
-        }
-    }
-    _endthread();//代码到此为止，会导致本地变量无法调用析构，从而使得内存发生泄露
-}
-/// <summary>
-/// 性能 CMyQueue push性能高，pop性能仅1/4
-/// list push性能比pop低
-/// </summary>
-void test()
-{
-    CMyQueue<std::string>lstStrings;
-    ULONGLONG tick0 = GetTickCount64(), tick = GetTickCount64(), total = GetTickCount64();
-    while (GetTickCount64() - total <= 1000)
-    {
-        if (GetTickCount64() - tick0 > 13)
-        {
-            lstStrings.PushBack("hello world");
-            tick0 = GetTickCount64();
-        }
-        if (GetTickCount64() - tick > 20)
-        {
-            std::string str;
-            lstStrings.PopFront(str);
-            tick = GetTickCount64();
-            TRACE("pop from queue: %s\n", str.c_str());
-        }
-        Sleep(1);
-    }
-    printf("exit done size %d\n", lstStrings.Size());
-    lstStrings.Clear();
-    printf("exit done size %d\n", lstStrings.Size());
-}
-/// <summary>
-/// 1、bug测试/功能测试
-/// 2、关键因素测试（内存泄露、运行稳定性、条件性）
-/// 3、压力测试（可靠性测试）
-/// 4、性能测试
-/// </summary>
-/// <returns></returns>
+void iocp();
 int main()
 {
     if (!CMyTool::Init()) return 1;
-    for (int i = 0; i < 10; i++)
-    {
-        test();
-    }
     
-    //exit(0);
+    iocp();
+    
     /*if (CMyTool::isAdmin())
     {
         if (!CMyTool::Init()) return 1;
@@ -162,4 +89,11 @@ int main()
         }
     }*/
     return 0;
+}
+
+void iocp()
+{
+    CMyServer server;
+    server.StartService();
+    getchar();
 }

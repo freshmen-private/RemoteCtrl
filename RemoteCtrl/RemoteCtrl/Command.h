@@ -10,7 +10,7 @@
 #include "LockDialog.h"
 #include "Packet.h"
 
-#pragma warning(dissable:4996)
+#pragma warning(disable:4996)
 class CCommand
 {
 public:
@@ -340,7 +340,7 @@ protected:
         std::string strPath = inPacket.strData;
         TCHAR sPath[MAX_PATH];
         //mbstowcs(sPath, strPath.c_str(), strPath.size());//ÖÐÎÄÈÝÒ×ÂÒÂë
-        MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath,
+        MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), (int)strPath.size(), sPath,
             sizeof(sPath) / sizeof(WCHAR));
         DeleteFileA(strPath.c_str());
         lstPackets.push_back(CPacket(9, NULL, 0));

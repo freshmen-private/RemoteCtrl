@@ -115,7 +115,7 @@ protected:
 		int index = 0;
 		while (true)
 		{
-			int len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
+			DWORD len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
 			TRACE("client_socket:%s %d\n", buffer, len);
 			if (len <= 0)
 			{

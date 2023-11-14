@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 #include "pch.h"
-//#include <list>
+#include <list>
 
 template<class T>
 class CMyQueue
