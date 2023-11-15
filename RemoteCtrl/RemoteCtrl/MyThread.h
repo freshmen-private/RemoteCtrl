@@ -10,7 +10,7 @@ class ThreadWorker
 {
 public:
 	ThreadWorker() :thiz(NULL), func(NULL) {}
-	ThreadWorker(ThreadFuncBase* obj, FUNCTYPE f) :thiz(obj), func(f) {}
+	ThreadWorker(void* obj, FUNCTYPE f) :thiz((ThreadFuncBase*)obj), func(f) {}
 	ThreadWorker(const ThreadWorker& worker)
 	{
 		thiz = worker.thiz;
@@ -92,16 +92,14 @@ public:
 			m_worker.store(NULL);
 			delete pWorker;
 		}
-		if (m_worker.load() == &worker)
-		{
-			return;
-		}
+		if (m_worker.load() == &worker) { return; }
 		if (!worker.IsValid())
 		{
 			m_worker.store(NULL);
 			return;
 		}
-		m_worker.store(new ::ThreadWorker(worker));
+		::ThreadWorker* pWorker = new ::ThreadWorker(worker) ;
+		m_worker.store(pWorker);
 	}
 	//true 表示空闲，false表示已经分配了工作
 	bool IsIdle()
@@ -134,7 +132,9 @@ private:
 					}
 					else if (ret < 0)
 					{
+						::ThreadWorker* pWorker = m_worker.load();
 						m_worker.store(NULL);
+						delete pWorker;
 					}
 				}
 			}

@@ -25,7 +25,7 @@ public:
 	std::vector<char> m_buffer;
 	ThreadWorker m_worker;//处理函数
 	CMyServer* m_server;//服务器对象
-	PCLIENT m_client;//对应的客户端
+	MyClient* m_client;//对应的客户端
 	WSABUF m_wsabuffer;
 	virtual ~COverlapped()
 	{
@@ -70,7 +70,9 @@ public:
 		return &m_received;
 	}
 	LPWSABUF RecvWSABuf();
+	LPWSAOVERLAPPED RecvOverlapped();
 	LPWSABUF SendWSABuf();
+	LPWSAOVERLAPPED SendOverlapped();
 	DWORD& flags() { return m_flags; }
 	sockaddr_in* GetLocalAddr() { return &m_laddr; }
 	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
@@ -159,29 +161,11 @@ public:
 	~CMyServer();
 
 	bool StartService();
-	bool NewAccept()
-	{
-		PCLIENT pClient(new MyClient());
-		pClient->SetOverlapped(pClient);
-		m_client.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient));
-		if (!AcceptEx(m_sock, *pClient, *pClient, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, *pClient, *pClient))
-		{
-			closesocket(m_sock);
-			m_sock = INVALID_SOCKET;
-			m_hIOCP = INVALID_HANDLE_VALUE;
-			return false;
-		}
-		return true;
-	}
+	bool NewAccept();
+	void BindNewSocket(SOCKET s);
 
 private:
-	void CreateSocket()
-	{
-		m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-		int opt = 1;
-		setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-	}
-	
+	void CreateSocket();
 	int threadIocp();
 private:
 	MyThreadPool m_pool;
