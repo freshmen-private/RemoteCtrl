@@ -77,12 +77,12 @@ public:
 		if (m_bStatus == false) return true;
 		m_bStatus = false;
 		DWORD ret = WaitForSingleObject(m_hThread, 1000);
-		if (ret == WAIT_TIMEOUT)
+		if (ret == WAIT_OBJECT_0)
 		{
 			TerminateThread(m_hThread, -1);
 		}
 		UpdateWorker();
-		return ret == WAIT_TIMEOUT;
+		return ret == WAIT_OBJECT_0;
 	}
 	void UpdateWorker(const ::ThreadWorker& worker = ::ThreadWorker())
 	{

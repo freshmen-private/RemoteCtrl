@@ -69,7 +69,7 @@ public:
 	{
 		return &m_received;
 	}
-	LPWSABUF RecvWSABuf();
+	LPWSABUF RecvWSABuffer();
 	LPWSAOVERLAPPED RecvOverlapped();
 	LPWSABUF SendWSABuf();
 	LPWSAOVERLAPPED SendOverlapped();

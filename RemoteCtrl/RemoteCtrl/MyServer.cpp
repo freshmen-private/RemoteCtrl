@@ -35,7 +35,7 @@ MyClient::operator LPOVERLAPPED()
 	return &m_overlapped->m_overlapped;
 }
 
-LPWSABUF MyClient::RecvWSABuf()
+LPWSABUF MyClient::RecvWSABuffer()
 {
 	return &m_recv->m_wsabuffer;
 }
@@ -107,10 +107,11 @@ int AcceptOverlapped<op>::AcceptWorker()
 		memcpy(m_client->GetLocalAddr(), plocal, sizeof(sockaddr_in));
 		memcpy(m_client->GetRemoteAddr(), premote, sizeof(sockaddr_in));
 		m_server->BindNewSocket(*m_client);
-		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuf(), 1, *m_client, &m_client->flags(), m_client->RecvOverlapped(), NULL);
+		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuffer(), 1, (LPDWORD)*m_client, &m_client->flags(), m_client->RecvOverlapped(), NULL);
+		DWORD ERR = GetLastError();
 		if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
 		{
-
+			//TRACE("NO MESSAGE\n");
 		}
 		if (!m_server->NewAccept())
 		{
