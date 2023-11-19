@@ -48,6 +48,7 @@ public:
 	CMyThread()
 	{
 		m_hThread = NULL;
+		handleID = 0;
 		m_bStatus = false;
 	}
 	~CMyThread()
@@ -121,22 +122,24 @@ private:
 			::ThreadWorker worker = *m_worker.load();
 			if (worker.IsValid())
 			{
+				//HANDLE current = OpenThread(THREAD_ALL_ACCESS, FALSE, GetCurrentThreadId());
 				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT)
 				{
 					int ret = worker();
 					if (ret != 0)
 					{
 						CString str;
-						str.Format(_T("thread found warning code %d\n"), ret);
+						str.Format(_T("thread found warning code %d %d\n"), ret, m_hThread);
 						OutputDebugString(str);
 					}
-					else if (ret < 0)
+					else if (ret == 0)
 					{
 						::ThreadWorker* pWorker = m_worker.load();
 						m_worker.store(NULL);
 						delete pWorker;
 					}
 				}
+				//TRACE("operation is completed\n");
 			}
 			else
 			{
@@ -156,6 +159,7 @@ private:
 	}
 private:
 	HANDLE m_hThread;
+	int handleID;
 	bool m_bStatus;//false 表示线程将要关闭， true表示线程正在运行
 	std::atomic<::ThreadWorker*> m_worker;
 };

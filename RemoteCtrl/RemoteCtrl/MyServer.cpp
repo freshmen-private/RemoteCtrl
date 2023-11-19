@@ -9,6 +9,8 @@ AcceptOverlapped<op>::AcceptOverlapped()
 	m_operator = CAccept;
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024);
+	m_wsabuffer.buf = &m_buffer[0];
+	m_wsabuffer.len = 1024;
 	m_server = NULL;
 }
 
@@ -17,7 +19,8 @@ MyClient::MyClient() :
 	m_overlapped(new ACCEPTOVERLAPPED()),
 	m_recv(new RECVOVERLAPPED()),
 	m_send(new SENDOVERLAPPED()),
-	m_vecSend(this, (SENDCALLBACK)&MyClient::SendData)
+	m_vecSend(this, (SENDCALLBACK)&MyClient::SendData),
+	m_used(0)
 {
 	m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 	m_buffer.resize(1024);
@@ -58,6 +61,8 @@ LPWSAOVERLAPPED MyClient::SendOverlapped()
 int MyClient::Recv()
 {
 	int ret = recv(m_sock, m_buffer.data() + m_used, (int)(m_buffer.size() - m_used), 0);
+	int err = WSAGetLastError();
+	TRACE("%d\n", err);
 	if (ret <= 0)
 	{
 		return -1;
@@ -107,6 +112,7 @@ int AcceptOverlapped<op>::AcceptWorker()
 		memcpy(m_client->GetLocalAddr(), plocal, sizeof(sockaddr_in));
 		memcpy(m_client->GetRemoteAddr(), premote, sizeof(sockaddr_in));
 		m_server->BindNewSocket(*m_client);
+		int recvbytes;
 		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuffer(), 1, (LPDWORD)*m_client, &m_client->flags(), m_client->RecvOverlapped(), NULL);
 		DWORD ERR = GetLastError();
 		if (ret == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
@@ -118,7 +124,9 @@ int AcceptOverlapped<op>::AcceptWorker()
 			return -2;
 		}
 	}
-	return -1;
+	//TRACE(m_client->RecvWSABuffer()->buf);
+	CMyTool::Dump((BYTE*)m_client->RecvWSABuffer()->buf, *(LPDWORD)*m_client);
+	return 0;
 }
 
 CMyServer::~CMyServer()
@@ -257,6 +265,8 @@ inline SendOverlapped<op>::SendOverlapped()
 	m_worker = ThreadWorker(this, (FUNCTYPE)&SendOverlapped<op>::SendWorker);
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024 * 256);
+	m_wsabuffer.buf = m_buffer.data();
+	m_wsabuffer.len = 1024 * 256;
 }
 template<COperator op>
 inline RecvOverlapped<op>::RecvOverlapped()
@@ -265,4 +275,6 @@ inline RecvOverlapped<op>::RecvOverlapped()
 	m_worker = ThreadWorker(this, (FUNCTYPE)&RecvOverlapped<op>::RecvWorker);
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024 * 256);
+	m_wsabuffer.buf = m_buffer.data();
+	m_wsabuffer.len = 1024 * 256;
 }

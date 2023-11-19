@@ -30,6 +30,8 @@ public:
 	virtual ~COverlapped()
 	{
 		m_buffer.clear();
+		m_wsabuffer.buf = NULL;
+		m_wsabuffer.len = 0;
 	}
 };
 template<COperator> class AcceptOverlapped;
@@ -62,7 +64,7 @@ public:
 	}
 	operator PVOID()
 	{
-		return &m_buffer[0];
+		return m_buffer.data();
 	}
 	operator LPOVERLAPPED();
 	operator LPDWORD()
@@ -136,6 +138,8 @@ public:
 	{
 		memset(&m_overlapped, 0, sizeof(m_overlapped));
 		m_buffer.resize(1024);
+		m_wsabuffer.buf = m_buffer;
+		m_wsabuffer.len = 1024;
 	}
 	int ErrorWorker()
 	{
@@ -150,7 +154,7 @@ typedef ErrorOverlapped<CError> ERROROVERLAPPED;
 class CMyServer :public ThreadFuncBase
 {
 public:
-	CMyServer(const std::string& ip = "0.0.0.0", short port = 9527) :m_pool(10)
+	CMyServer(const std::string& ip = "0.0.0.0", short port = 9527) :m_pool(5)
 	{
 		m_hIOCP = INVALID_HANDLE_VALUE;
 		m_sock = INVALID_SOCKET;

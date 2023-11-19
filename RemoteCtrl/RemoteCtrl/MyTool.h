@@ -17,6 +17,7 @@ public:
             strOut += " ";
         }
         strOut += "\n";
+        //TRACE(strOut.c_str());
         OutputDebugStringA(strOut.c_str());
     }
     static bool isAdmin()

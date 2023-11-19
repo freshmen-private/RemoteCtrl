@@ -170,7 +170,7 @@ protected:
 		{
 			if (dwTransferred == 0 || CompeletionKey == NULL)
 			{
-				printf("thread is rear to exit\n");
+				printf("thread is readly to exit\n");
 				break;
 			}
 			pParam = (PPARAM*)CompeletionKey;

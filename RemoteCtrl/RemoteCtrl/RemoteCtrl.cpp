@@ -8,11 +8,13 @@
 #include <conio.h>
 #include "MyQueue.h"
 #include <MSWSock.h>
-#include "MyServer.h"
+#include "ENetwork.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include "ESocket.h"
+#include "MyServer.h"
 //#pragma comment( linker, "/subsystem:windows /entry:WinMainCRTStartup" )
 //#pragma comment( linker, "/subsystem:windows /entry:mainCRTStartup" )
 //#pragma comment( linker, "/subsystem:console /entry:WinMainCRTStartup" )
@@ -59,10 +61,22 @@ void iocp();
 void udp_server();
 void udp_client(bool ishost = true);
 
+void initsock()
+{
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+}
+
+void clearsock()
+{
+    WSACleanup();
+}
+
 
 int main(int argc, char* argv[])
 {
-    if (!CMyTool::Init()) return 1;
+    initsock();
+    /*if (!CMyTool::Init()) return 1;
     
     if (argc == 1)
     {
@@ -93,7 +107,12 @@ int main(int argc, char* argv[])
     {
         udp_client(false);
     }
-    //iocp();
+    else
+    {
+        udp_client();
+    }
+    clearsock();*/
+    iocp();
     
     /*if (CMyTool::isAdmin())
     {
@@ -132,14 +151,92 @@ void iocp()
     getchar();
 }
 
+/// <summary>
+/// 1、易用性
+///     a 简化参数
+///     b 类型适配
+///     c 流程简化
+/// 2、易移植性（高内聚，低耦合）
+///     高内聚：和项目相关联的东西通通聚在一起
+///     低耦合：和项目没有关联的东西全部都不留在里面
+///     a 核心功能是什么？
+///     b 业务逻辑是什么？
+/// 思路：做或者实现一个需求的过程
+///     确定需求（阶段性的）、选定技术方案（依据技术点）、从框架开发到细节实现（从顶到底）、编译问题、
+///     内存泄露（线程结束、exit函数）、bug排查与功能调试（日志、断点、线程、调用堆栈、内存、监视、局部变量、自动变量）、
+///     压力测试、功能上线
+/// 设计：易用性、可移植性（可复用性）、安全性（线程安全、异常处理，资源处理）、稳定性（鲁棒性）、可扩展性
+///     有度、有条件的、可读性、效率、易用性
+/// </summary>
+
+int RecvFormCB(void* arg, const EBuffer& buffer, ESockaddrIn& addr)
+{
+    EServer* server = (EServer*)arg;
+    return server->Sendto(addr, buffer);
+}
+
+int SendToBC(void* arg, const ESockaddrIn& addr, int ret)
+{
+    EServer* server = (EServer*)arg;
+    printf("sendto done!%p\r\n", server);
+    return 0;
+}
+
 void udp_server()
 {
+    std::list<ESockaddrIn> lstclients;
     printf("%s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+    EServerParamter param(
+        "127.0.0.1", 20000, ETYPE::ETypeUDP, NULL, NULL, NULL, RecvFormCB, SendToBC
+    );
+    EServer server(param);
+    server.Invoke(&server);
+    printf("%s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+    getchar();
+    return;
+    //SOCKET sock = socket(PF_INET, SOCK_DGRAM, 0);
+   
 }
 void udp_client(bool ishost)
 {
+    Sleep(2000);
+    sockaddr_in server, client;
+    int len = sizeof(server);
+    memset(&server, 0, sizeof(server));
+    memset(&server, 0, sizeof(client));
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_port = htons(20000);
+    SOCKET sock = socket(PF_INET, SOCK_DGRAM, 0);
+    if (sock == INVALID_SOCKET)
+    {
+        printf("%s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+        return;
+    }
     if(ishost)
+    {
         printf("host %s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+        EBuffer msg = "hello world\n";
+        int ret = sendto(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&server, sizeof(server));
+        if (ret > 0)
+        {
+            msg.resize(1024);
+            memset((char*)msg.c_str(), 0, msg.size());
+            recvfrom(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&client, &len);
+            printf("%s(%d):%s ip %08X port %d\n", __FILE__, __LINE__, __FUNCTION__, client.sin_addr.s_addr, ntohs(client.sin_port));
+        }
+    }
     else
-        printf("client %s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+    {
+        printf("host %s,(%d):%s\n", __FILE__, __LINE__, __FUNCTION__);
+        std::string msg = "hello world\n";
+        int ret = sendto(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&server, sizeof(server));
+        if (ret > 0)
+        {
+            recvfrom(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&client, &len);
+            printf("%s(%d):%s ip %08X port %d\n", __FILE__, __LINE__, __FUNCTION__, client.sin_addr.s_addr, ntohs(client.sin_port));
+        }
+    }
+    closesocket(sock);
 }
+

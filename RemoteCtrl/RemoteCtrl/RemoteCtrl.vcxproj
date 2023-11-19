@@ -114,6 +114,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <DisableSpecificWarnings>4267</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,6 +144,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Command.h" />
+    <ClInclude Include="ENetwork.h" />
+    <ClInclude Include="ESocket.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LockDialog.h" />
     <ClInclude Include="MyQueue.h" />
@@ -157,6 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Command.cpp" />
+    <ClCompile Include="ENetwork.cpp" />
     <ClCompile Include="LockDialog.cpp" />
     <ClCompile Include="MyServer.cpp" />
     <ClCompile Include="MyTool.cpp" />
